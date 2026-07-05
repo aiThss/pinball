@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
 import { depositUpdateSchema } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
-import "@/models/User";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
-
-const staffAllowedFields = new Set(["cards", "balls", "status"]);
 
 const labels: Record<string, string> = {
   fullName: "Họ tên",
@@ -43,12 +39,6 @@ function applyChange<T extends keyof ICustomerDeposit>(
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return jsonError("Vui lòng đăng nhập.", 401);
-  }
-
   try {
     const { id } = await context.params;
 
@@ -58,14 +48,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const body = await request.json();
     const data = depositUpdateSchema.parse(body);
-    const updatedFields = Object.keys(data);
-
-    if (
-      user.role !== "admin" &&
-      updatedFields.some((field) => !staffAllowedFields.has(field))
-    ) {
-      return jsonError("Staff chỉ được cập nhật thẻ, bi và trạng thái.", 403);
-    }
 
     await connectMongo();
 
@@ -77,34 +59,28 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const changes: string[] = [];
 
-    if (user.role === "admin") {
-      applyChange(deposit, "fullName", data.fullName, changes);
-      applyChange(deposit, "phone", data.phone, changes);
-      applyChange(deposit, "depositDate", data.depositDate, changes);
-      applyChange(deposit, "depositTime", data.depositTime, changes);
-    }
-
+    applyChange(deposit, "fullName", data.fullName, changes);
+    applyChange(deposit, "phone", data.phone, changes);
+    applyChange(deposit, "depositDate", data.depositDate, changes);
+    applyChange(deposit, "depositTime", data.depositTime, changes);
     applyChange(deposit, "cards", data.cards, changes);
     applyChange(deposit, "balls", data.balls, changes);
     applyChange(deposit, "status", data.status, changes);
 
     if (changes.length === 0) {
-      await deposit.populate("createdBy updatedBy", "displayName username role");
       return NextResponse.json({ deposit: serializeDeposit(deposit) });
     }
 
     deposit.totalText = buildTotalText(deposit.cards, deposit.balls);
-    deposit.updatedBy = new Types.ObjectId(user.id);
+    deposit.updatedByName = data.actorName;
     deposit.history.push({
       at: new Date(),
-      actorId: new Types.ObjectId(user.id),
-      actorName: user.displayName,
+      actorName: data.actorName,
       action: "UPDATE",
       content: changes.join("; "),
     });
 
     await deposit.save();
-    await deposit.populate("createdBy updatedBy", "displayName username role");
 
     return NextResponse.json({ deposit: serializeDeposit(deposit) });
   } catch (error) {
@@ -113,16 +89,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return jsonError("Vui lòng đăng nhập.", 401);
-  }
-
-  if (user.role !== "admin") {
-    return jsonError("Chỉ admin được xóa bản ghi.", 403);
-  }
-
   const { id } = await context.params;
 
   if (!Types.ObjectId.isValid(id)) {

@@ -7,8 +7,6 @@ export const depositStatuses = [
   "Đã hủy",
 ] as const;
 
-export const userRoles = ["admin", "staff"] as const;
-
 const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày gửi phải theo định dạng YYYY-MM-DD.");
@@ -46,14 +44,16 @@ export const phoneSchema = z
     "Số điện thoại chưa đúng định dạng Việt Nam.",
   );
 
-export const loginSchema = z.object({
-  username: z.string().trim().min(2, "Vui lòng nhập tài khoản."),
-  password: z.string().min(1, "Vui lòng nhập mật khẩu."),
-});
+export const actorNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Vui lòng nhập tên nhân viên.")
+  .max(80, "Tên nhân viên quá dài.");
 
 export const depositCreateSchema = z.object({
   fullName: z.string().trim().min(2, "Vui lòng nhập họ tên khách."),
   phone: phoneSchema,
+  actorName: actorNameSchema,
   depositDate: optionalDateSchema,
   depositTime: optionalTimeSchema,
   cards: nonNegativeIntegerSchema,
@@ -65,36 +65,13 @@ export const depositUpdateSchema = z
   .object({
     fullName: z.string().trim().min(2).optional(),
     phone: phoneSchema.optional(),
+    actorName: actorNameSchema,
     depositDate: optionalDateSchema,
     depositTime: optionalTimeSchema,
     cards: nonNegativeIntegerSchema.optional(),
     balls: nonNegativeIntegerSchema.optional(),
     status: z.enum(depositStatuses).optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, {
-    message: "Không có dữ liệu cập nhật.",
-  });
-
-export const userCreateSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .min(3, "Tài khoản tối thiểu 3 ký tự.")
-    .max(40, "Tài khoản quá dài.")
-    .regex(/^[a-zA-Z0-9._-]+$/, "Chỉ dùng chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.")
-    .transform((value) => value.toLowerCase()),
-  displayName: z.string().trim().min(2, "Vui lòng nhập tên nhân viên."),
-  password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự."),
-  role: z.enum(userRoles),
-});
-
-export const userUpdateSchema = z
-  .object({
-    displayName: z.string().trim().min(2).optional(),
-    password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự.").optional(),
-    role: z.enum(userRoles).optional(),
-    isActive: z.boolean().optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine((value) => Object.keys(value).some((key) => key !== "actorName"), {
     message: "Không có dữ liệu cập nhật.",
   });

@@ -3,7 +3,7 @@ import { depositStatuses } from "@/lib/validation";
 
 export interface IHistoryEntry {
   at: Date;
-  actorId: Types.ObjectId;
+  actorId?: Types.ObjectId;
   actorName: string;
   action: "CREATE" | "UPDATE";
   content: string;
@@ -19,8 +19,10 @@ export interface ICustomerDeposit extends Document {
   balls: number;
   totalText: string;
   status: (typeof depositStatuses)[number];
-  createdBy: Types.ObjectId;
-  updatedBy: Types.ObjectId;
+  createdBy?: Types.ObjectId;
+  updatedBy?: Types.ObjectId;
+  createdByName: string;
+  updatedByName: string;
   history: IHistoryEntry[];
   createdAt: Date;
   updatedAt: Date;
@@ -35,8 +37,7 @@ const HistorySchema = new Schema<IHistoryEntry>(
     },
     actorId: {
       type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+      required: false,
     },
     actorName: {
       type: String,
@@ -101,13 +102,23 @@ const CustomerDepositSchema = new Schema<ICustomerDeposit>(
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+      required: false,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      required: false,
+    },
+    createdByName: {
+      type: String,
       required: true,
+      default: "Nhân viên",
+      trim: true,
+    },
+    updatedByName: {
+      type: String,
+      required: true,
+      default: "Nhân viên",
+      trim: true,
     },
     history: {
       type: [HistorySchema],

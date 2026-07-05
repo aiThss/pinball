@@ -1,43 +1,26 @@
 "use client";
 
 import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
-  Calendar,
-  ClipboardList,
-  Edit3,
+  CalendarDays,
+  Clock3,
+  Coins,
+  Eye,
+  LayoutDashboard,
   LogOut,
   Plus,
   RefreshCw,
   Save,
   Search,
-  ShieldCheck,
+  Ticket,
   Trash2,
-  Users,
+  UserRound,
   X,
 } from "lucide-react";
 
-type Role = "admin" | "staff";
+type Mode = "staff" | "admin";
 type Status = "Đang gửi" | "Đã nhận lại" | "Đã đổi quà" | "Đã hủy";
-
-type AuthUser = {
-  id: string;
-  username: string;
-  displayName: string;
-  role: Role;
-  isActive: boolean;
-};
-
-type UserRow = AuthUser & {
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-type UserRef = {
-  id: string;
-  username: string;
-  displayName: string;
-  role: string;
-} | null;
 
 type HistoryEntry = {
   id: string;
@@ -59,8 +42,10 @@ type Deposit = {
   status: Status;
   createdAt: string;
   updatedAt: string;
-  createdBy: UserRef;
-  updatedBy: UserRef;
+  createdBy: { displayName: string } | null;
+  updatedBy: { displayName: string } | null;
+  createdByName?: string;
+  updatedByName?: string;
   history: HistoryEntry[];
 };
 
@@ -70,18 +55,30 @@ type Notice = {
 };
 
 const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi quà", "Đã hủy"];
+const staffStorageKey = "pinball_staff_name";
 
 const inputClass =
-  "h-12 w-full rounded-md border border-slate-600 bg-slate-950 px-3 text-base text-white outline-none ring-yellow-300 transition placeholder:text-slate-500 focus:border-yellow-300 focus:ring-2";
+  "h-12 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[15px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10";
 const selectClass =
-  "h-12 w-full rounded-md border border-slate-600 bg-slate-950 px-3 text-base text-white outline-none ring-yellow-300 transition focus:border-yellow-300 focus:ring-2";
-const labelClass = "mb-1.5 block text-sm font-semibold text-slate-200";
+  "h-12 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[15px] text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10";
+const labelClass = "mb-2 block text-sm font-semibold text-[#0F172A]";
 const primaryButton =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-md bg-yellow-300 px-5 text-base font-bold text-slate-950 transition hover:bg-yellow-200 disabled:opacity-60";
+  "inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#111827] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1F2937] disabled:opacity-50";
 const secondaryButton =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-md border border-slate-500 bg-slate-800 px-4 text-base font-semibold text-slate-50 transition hover:bg-slate-700 disabled:opacity-60";
-const dangerButton =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-md border border-red-400/70 bg-red-950 px-4 text-base font-semibold text-red-50 transition hover:bg-red-900 disabled:opacity-60";
+  "inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[#CBD5E1] bg-white px-4 text-sm font-semibold text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC] disabled:opacity-50";
+const iconButton =
+  "inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]";
+
+function getHanoiParts(date = new Date()) {
+  const hanoiDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  const iso = hanoiDate.toISOString();
+
+  return {
+    date: iso.slice(0, 10),
+    time: iso.slice(11, 19),
+    shortTime: iso.slice(11, 16),
+  };
+}
 
 function formatDate(value: string) {
   const [year, month, day] = value.split("-");
@@ -105,18 +102,26 @@ function formatDateTime(value?: string) {
 
 function statusClass(status: Status) {
   if (status === "Đang gửi") {
-    return "border-sky-300 bg-sky-950 text-sky-100";
+    return "bg-[#DBEAFE] text-[#2563EB]";
   }
 
   if (status === "Đã nhận lại") {
-    return "border-emerald-300 bg-emerald-950 text-emerald-100";
+    return "bg-[#DCFCE7] text-[#16A34A]";
   }
 
   if (status === "Đã đổi quà") {
-    return "border-fuchsia-300 bg-fuchsia-950 text-fuchsia-100";
+    return "bg-[#FEF3C7] text-[#B45309]";
   }
 
-  return "border-slate-400 bg-slate-800 text-slate-100";
+  return "bg-[#FEE2E2] text-[#DC2626]";
+}
+
+function actorName(deposit: Deposit, field: "created" | "updated") {
+  if (field === "created") {
+    return deposit.createdByName || deposit.createdBy?.displayName || "N/A";
+  }
+
+  return deposit.updatedByName || deposit.updatedBy?.displayName || "N/A";
 }
 
 async function apiRequest<T>(url: string, init?: RequestInit) {
@@ -130,9 +135,59 @@ async function apiRequest<T>(url: string, init?: RequestInit) {
   return data as T;
 }
 
-export default function Dashboard({ user }: { user: AuthUser }) {
-  const isAdmin = user.role === "admin";
-  const [activeTab, setActiveTab] = useState<"deposits" | "employees">("deposits");
+function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
+  const [name, setName] = useState("");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = name.trim();
+
+    if (!value) {
+      return;
+    }
+
+    localStorage.setItem(staffStorageKey, value);
+    onEnter(value);
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 text-[#0F172A]">
+      <section className="w-full max-w-md rounded-lg border border-[#E5E7EB] bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#111827] text-white">
+            <UserRound aria-hidden="true" size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Pinball Deposit</h1>
+            <p className="text-sm text-[#64748B]">Nhập tên nhân viên ca hiện tại</p>
+          </div>
+        </div>
+
+        <form className="space-y-4" onSubmit={submit}>
+          <label>
+            <span className={labelClass}>Tên nhân viên</span>
+            <input
+              autoFocus
+              className={inputClass}
+              placeholder="Ví dụ: Danh Thai"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
+          </label>
+          <button className={`${primaryButton} w-full`} type="submit">
+            Tiếp tục
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+export default function Dashboard({ mode }: { mode: Mode }) {
+  const isAdmin = mode === "admin";
+  const [staffName, setStaffName] = useState(isAdmin ? "Admin" : "");
+  const [clock, setClock] = useState(getHanoiParts());
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
@@ -147,11 +202,8 @@ export default function Dashboard({ user }: { user: AuthUser }) {
   const [depositForm, setDepositForm] = useState({
     fullName: "",
     phone: "",
-    depositDate: "",
-    depositTime: "",
     cards: "0",
     balls: "0",
-    status: "Đang gửi" as Status,
   });
   const [editForm, setEditForm] = useState({
     fullName: "",
@@ -162,16 +214,23 @@ export default function Dashboard({ user }: { user: AuthUser }) {
     balls: "0",
     status: "Đang gửi" as Status,
   });
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [userDrafts, setUserDrafts] = useState<
-    Record<string, { displayName: string; role: Role; isActive: boolean; password: string }>
-  >({});
-  const [newUser, setNewUser] = useState({
-    displayName: "",
-    username: "",
-    password: "",
-    role: "staff" as Role,
-  });
+
+  useEffect(() => {
+    if (isAdmin) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setStaffName(localStorage.getItem(staffStorageKey) ?? "");
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setClock(getHanoiParts()), 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const activeDeposits = useMemo(
     () => deposits.filter((deposit) => deposit.status === "Đang gửi").length,
@@ -198,19 +257,6 @@ export default function Dashboard({ user }: { user: AuthUser }) {
     setNotice({ type, text });
   }, []);
 
-  const loadHanoiTime = useCallback(async () => {
-    try {
-      const data = await apiRequest<{ date: string; time: string }>("/api/time");
-      setDepositForm((current) => ({
-        ...current,
-        depositDate: data.date,
-        depositTime: data.time,
-      }));
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không lấy được giờ Hà Nội.");
-    }
-  }, [showNotice]);
-
   const loadDeposits = useCallback(async () => {
     setLoading(true);
 
@@ -225,7 +271,7 @@ export default function Dashboard({ user }: { user: AuthUser }) {
         params.set("phone", filters.phone.trim());
       }
 
-      if (filters.date) {
+      if (isAdmin && filters.date) {
         params.set("date", filters.date);
       }
 
@@ -243,63 +289,22 @@ export default function Dashboard({ user }: { user: AuthUser }) {
     } finally {
       setLoading(false);
     }
-  }, [filters, showNotice]);
+  }, [filters, isAdmin, showNotice]);
 
-  const loadUsers = useCallback(async () => {
-    if (!isAdmin) {
+  useEffect(() => {
+    if (!staffName) {
       return;
     }
 
-    try {
-      const data = await apiRequest<{ users: UserRow[] }>("/api/users");
-      setUsers(data.users);
-      setUserDrafts(
-        Object.fromEntries(
-          data.users.map((staff) => [
-            staff.id,
-            {
-              displayName: staff.displayName,
-              role: staff.role,
-              isActive: staff.isActive,
-              password: "",
-            },
-          ]),
-        ),
-      );
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không tải được nhân viên.");
-    }
-  }, [isAdmin, showNotice]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadHanoiTime();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [loadHanoiTime]);
-
-  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void loadDeposits();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [loadDeposits]);
+  }, [loadDeposits, staffName]);
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (activeTab === "employees") {
-        void loadUsers();
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [activeTab, loadUsers]);
-
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
+  if (!staffName) {
+    return <StaffGate onEnter={setStaffName} />;
   }
 
   async function handleCreateDeposit(event: FormEvent<HTMLFormElement>) {
@@ -313,22 +318,20 @@ export default function Dashboard({ user }: { user: AuthUser }) {
         },
         body: JSON.stringify({
           ...depositForm,
+          actorName: staffName,
           cards: Number(depositForm.cards),
           balls: Number(depositForm.balls),
         }),
       });
 
       setDeposits((current) => [data.deposit, ...current]);
-      setDepositForm((current) => ({
-        ...current,
+      setDepositForm({
         fullName: "",
         phone: "",
         cards: "0",
         balls: "0",
-        status: "Đang gửi",
-      }));
+      });
       showNotice("success", "Đã lưu bản ghi gửi giữ.");
-      void loadHanoiTime();
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không lưu được bản ghi.");
     }
@@ -357,10 +360,12 @@ export default function Dashboard({ user }: { user: AuthUser }) {
     const payload = isAdmin
       ? {
           ...editForm,
+          actorName: staffName,
           cards: Number(editForm.cards),
           balls: Number(editForm.balls),
         }
       : {
+          actorName: staffName,
           cards: Number(editForm.cards),
           balls: Number(editForm.balls),
           status: editForm.status,
@@ -406,317 +411,269 @@ export default function Dashboard({ user }: { user: AuthUser }) {
     }
   }
 
-  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    try {
-      const data = await apiRequest<{ user: UserRow }>("/api/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newUser),
-      });
-      setUsers((current) => [data.user, ...current]);
-      setUserDrafts((current) => ({
-        ...current,
-        [data.user.id]: {
-          displayName: data.user.displayName,
-          role: data.user.role,
-          isActive: data.user.isActive,
-          password: "",
-        },
-      }));
-      setNewUser({ displayName: "", username: "", password: "", role: "staff" });
-      showNotice("success", "Đã tạo nhân viên.");
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không tạo được nhân viên.");
-    }
-  }
-
-  async function handleSaveUser(staff: UserRow) {
-    const draft = userDrafts[staff.id];
-
-    if (!draft) {
-      return;
-    }
-
-    const payload: Record<string, unknown> = {
-      displayName: draft.displayName,
-      role: draft.role,
-      isActive: draft.isActive,
-    };
-
-    if (draft.password.trim()) {
-      payload.password = draft.password.trim();
-    }
-
-    try {
-      const data = await apiRequest<{ user: UserRow }>(`/api/users/${staff.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-      setUsers((current) =>
-        current.map((item) => (item.id === data.user.id ? data.user : item)),
-      );
-      setUserDrafts((current) => ({
-        ...current,
-        [data.user.id]: {
-          displayName: data.user.displayName,
-          role: data.user.role,
-          isActive: data.user.isActive,
-          password: "",
-        },
-      }));
-      showNotice("success", "Đã lưu nhân viên.");
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không lưu được nhân viên.");
-    }
-  }
-
-  async function handleDeleteUser(staff: UserRow) {
-    const confirmed = window.confirm(`Xóa tài khoản ${staff.username}?`);
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await apiRequest<{ ok: boolean }>(`/api/users/${staff.id}`, {
-        method: "DELETE",
-      });
-      setUsers((current) => current.filter((item) => item.id !== staff.id));
-      showNotice("success", "Đã xóa nhân viên.");
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không xóa được nhân viên.");
-    }
+  function switchStaff() {
+    localStorage.removeItem(staffStorageKey);
+    setStaffName("");
   }
 
   return (
-    <main className="min-h-screen bg-[#0b1020] text-slate-50">
-      <header className="border-b border-white/10 bg-[#111827] px-4 py-4 shadow-lg shadow-black/20">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+      <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-yellow-300 text-slate-950">
-              <ClipboardList aria-hidden="true" size={25} />
+            <div className="hidden lg:flex">
+              <LayoutDashboard aria-hidden="true" className="text-[#334155]" size={22} />
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#111827] text-white">
+              <Ticket aria-hidden="true" size={23} />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-normal md:text-2xl">Pinball Deposit</h1>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
-                <span>{user.displayName}</span>
-                <span className="rounded border border-cyan-300/60 px-2 py-0.5 text-cyan-100">
-                  {user.role === "admin" ? "Admin" : "Staff"}
-                </span>
-              </div>
+              <h1 className="text-lg font-bold leading-tight">Pinball Deposit</h1>
+              <p className="text-sm text-[#64748B]">Quản lý gửi bi & thẻ</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              className={activeTab === "deposits" ? primaryButton : secondaryButton}
-              onClick={() => setActiveTab("deposits")}
-              type="button"
-            >
-              <ClipboardList aria-hidden="true" size={20} />
-              Gửi giữ
-            </button>
-            {isAdmin ? (
-              <button
-                className={activeTab === "employees" ? primaryButton : secondaryButton}
-                onClick={() => setActiveTab("employees")}
-                type="button"
-              >
-                <Users aria-hidden="true" size={20} />
-                Nhân viên
-              </button>
-            ) : null}
-            <button className={secondaryButton} onClick={handleLogout} type="button">
-              <LogOut aria-hidden="true" size={20} />
-              Thoát
-            </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="text-right text-sm font-semibold">
+              <div>{clock.time}</div>
+              <div className="font-normal text-[#64748B]">{formatDate(clock.date)}</div>
+            </div>
+            <div className="h-10 w-px bg-[#E5E7EB]" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E5E7EB] text-sm font-semibold">
+                {staffName
+                  .split(" ")
+                  .map((part) => part[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              <div>
+                <div className="text-sm font-bold">{staffName}</div>
+                <div className="text-xs text-[#64748B]">{isAdmin ? "Admin" : "Nhân viên"}</div>
+              </div>
+              {!isAdmin ? (
+                <button
+                  aria-label="Đổi nhân viên"
+                  className={iconButton}
+                  onClick={switchStaff}
+                  type="button"
+                >
+                  <LogOut aria-hidden="true" size={17} />
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-5">
-        {notice ? (
-          <div
-            className={`mb-4 flex items-start justify-between gap-3 rounded-md border px-4 py-3 text-sm font-semibold ${
-              notice.type === "success"
-                ? "border-emerald-400/60 bg-emerald-950/80 text-emerald-50"
-                : "border-red-400/60 bg-red-950/80 text-red-50"
-            }`}
-          >
-            <span>{notice.text}</span>
-            <button
-              aria-label="Đóng thông báo"
-              className="rounded p-1 hover:bg-white/10"
-              onClick={() => setNotice(null)}
-              type="button"
-            >
-              <X aria-hidden="true" size={18} />
-            </button>
+      <div className="mx-auto grid max-w-[1440px] gap-0 lg:grid-cols-[220px_1fr]">
+        <aside className="hidden border-r border-[#E5E7EB] bg-white px-4 py-8 lg:block">
+          <nav className="space-y-2">
+            <div className="flex items-center gap-3 rounded-md bg-[#F8FAFC] px-4 py-3 text-sm font-semibold">
+              <LayoutDashboard aria-hidden="true" size={18} />
+              Tổng quan
+            </div>
+            <div className="px-4 pt-6 text-xs font-bold uppercase text-[#64748B]">Quản lý</div>
+            <div className="flex items-center gap-3 rounded-md px-4 py-3 text-sm text-[#334155]">
+              <Ticket aria-hidden="true" size={18} />
+              Gửi giữ
+            </div>
+            <div className="flex items-center gap-3 rounded-md px-4 py-3 text-sm text-[#334155]">
+              <Coins aria-hidden="true" size={18} />
+              Thẻ & Bi
+            </div>
+            {isAdmin ? (
+              <div className="flex items-center gap-3 rounded-md px-4 py-3 text-sm text-[#334155]">
+                <Clock3 aria-hidden="true" size={18} />
+                Lịch sử chi tiết
+              </div>
+            ) : null}
+          </nav>
+        </aside>
+
+        <section className="space-y-5 px-4 py-5 lg:px-6">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Link className={isAdmin ? secondaryButton : primaryButton} href="/">
+              <Ticket aria-hidden="true" size={18} />
+              Gửi giữ
+            </Link>
+            <Link className={isAdmin ? primaryButton : secondaryButton} href="/admin">
+              <Eye aria-hidden="true" size={18} />
+              Admin
+            </Link>
           </div>
-        ) : null}
 
-        {activeTab === "deposits" ? (
-          <div className="space-y-5">
-            <section className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-md border border-white/10 bg-[#111827] p-4">
-                <div className="text-sm font-semibold text-slate-300">Đang gửi</div>
-                <div className="mt-1 text-3xl font-bold text-white">{activeDeposits}</div>
-              </div>
-              <div className="rounded-md border border-white/10 bg-[#111827] p-4">
-                <div className="text-sm font-semibold text-slate-300">Tổng thẻ còn giữ</div>
-                <div className="mt-1 text-3xl font-bold text-yellow-200">{totalCards}</div>
-              </div>
-              <div className="rounded-md border border-white/10 bg-[#111827] p-4">
-                <div className="text-sm font-semibold text-slate-300">Tổng bi còn giữ</div>
-                <div className="mt-1 text-3xl font-bold text-cyan-100">{totalBalls}</div>
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-white/10 bg-[#111827] p-4 shadow-xl shadow-black/20">
-              <h2 className="mb-4 text-lg font-bold">Nhập gửi giữ</h2>
-              <form className="grid gap-4 lg:grid-cols-12" onSubmit={handleCreateDeposit}>
-                <label className="lg:col-span-3">
-                  <span className={labelClass}>Họ và tên khách</span>
-                  <input
-                    className={inputClass}
-                    value={depositForm.fullName}
-                    onChange={(event) =>
-                      setDepositForm((current) => ({
-                        ...current,
-                        fullName: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </label>
-
-                <label className="lg:col-span-2">
-                  <span className={labelClass}>Số điện thoại</span>
-                  <input
-                    className={inputClass}
-                    inputMode="tel"
-                    value={depositForm.phone}
-                    onChange={(event) =>
-                      setDepositForm((current) => ({
-                        ...current,
-                        phone: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </label>
-
-                <label className="lg:col-span-2">
-                  <span className={labelClass}>Ngày gửi</span>
-                  <input
-                    className={inputClass}
-                    type="date"
-                    value={depositForm.depositDate}
-                    onChange={(event) =>
-                      setDepositForm((current) => ({
-                        ...current,
-                        depositDate: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-
-                <label className="lg:col-span-1">
-                  <span className={labelClass}>Giờ gửi</span>
-                  <input
-                    className={inputClass}
-                    type="time"
-                    value={depositForm.depositTime}
-                    onChange={(event) =>
-                      setDepositForm((current) => ({
-                        ...current,
-                        depositTime: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-
-                <label className="lg:col-span-1">
-                  <span className={labelClass}>Thẻ</span>
-                  <input
-                    className={inputClass}
-                    min="0"
-                    type="number"
-                    value={depositForm.cards}
-                    onChange={(event) =>
-                      setDepositForm((current) => ({
-                        ...current,
-                        cards: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </label>
-
-                <label className="lg:col-span-1">
-                  <span className={labelClass}>Bi</span>
-                  <input
-                    className={inputClass}
-                    min="0"
-                    type="number"
-                    value={depositForm.balls}
-                    onChange={(event) =>
-                      setDepositForm((current) => ({
-                        ...current,
-                        balls: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </label>
-
-                <div className="flex items-end lg:col-span-2">
-                  <button className="h-12 w-full justify-center rounded-md bg-yellow-300 px-5 text-base font-bold text-slate-950 transition hover:bg-yellow-200" type="submit">
-                    <span className="inline-flex items-center gap-2">
-                      <Plus aria-hidden="true" size={20} />
-                      Lưu
-                    </span>
-                  </button>
-                </div>
-              </form>
-            </section>
-
-            <section className="rounded-lg border border-white/10 bg-[#111827] p-4 shadow-xl shadow-black/20">
-              <form
-                className="grid gap-3 lg:grid-cols-12"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void loadDeposits();
-                }}
+          {notice ? (
+            <div
+              className={`flex items-start justify-between gap-3 rounded-md border px-4 py-3 text-sm font-semibold ${
+                notice.type === "success"
+                  ? "border-[#86EFAC] bg-[#DCFCE7] text-[#166534]"
+                  : "border-[#FCA5A5] bg-[#FEE2E2] text-[#991B1B]"
+              }`}
+            >
+              <span>{notice.text}</span>
+              <button
+                aria-label="Đóng thông báo"
+                className="rounded p-1 hover:bg-black/5"
+                onClick={() => setNotice(null)}
+                type="button"
               >
-                <label className="lg:col-span-3">
-                  <span className={labelClass}>Tìm theo họ tên</span>
-                  <input
-                    className={inputClass}
-                    value={filters.name}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, name: event.target.value }))
-                    }
-                  />
-                </label>
-                <label className="lg:col-span-3">
-                  <span className={labelClass}>Tìm theo SĐT</span>
-                  <input
-                    className={inputClass}
-                    inputMode="tel"
-                    value={filters.phone}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, phone: event.target.value }))
-                    }
-                  />
-                </label>
+                <X aria-hidden="true" size={18} />
+              </button>
+            </div>
+          ) : null}
+
+          <section className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F1F5F9]">
+                  <Ticket aria-hidden="true" size={24} />
+                </div>
+                <div>
+                  <div className="text-sm text-[#334155]">Đang gửi</div>
+                  <div className="text-3xl font-bold">{activeDeposits}</div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F1F5F9]">
+                  <CalendarDays aria-hidden="true" size={24} />
+                </div>
+                <div>
+                  <div className="text-sm text-[#334155]">Tổng thẻ còn giữ</div>
+                  <div className="text-3xl font-bold">{totalCards}</div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F1F5F9]">
+                  <Coins aria-hidden="true" size={24} />
+                </div>
+                <div>
+                  <div className="text-sm text-[#334155]">Tổng bi còn giữ</div>
+                  <div className="text-3xl font-bold">{totalBalls}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-bold">Nhập gửi giữ</h2>
+            <form className="grid gap-4 lg:grid-cols-12" onSubmit={handleCreateDeposit}>
+              <label className="lg:col-span-4">
+                <span className={labelClass}>Họ và tên khách</span>
+                <input
+                  className={inputClass}
+                  placeholder="Nhập họ và tên"
+                  value={depositForm.fullName}
+                  onChange={(event) =>
+                    setDepositForm((current) => ({
+                      ...current,
+                      fullName: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <label className="lg:col-span-3">
+                <span className={labelClass}>Số điện thoại</span>
+                <input
+                  className={inputClass}
+                  inputMode="tel"
+                  placeholder="Nhập số điện thoại"
+                  value={depositForm.phone}
+                  onChange={(event) =>
+                    setDepositForm((current) => ({
+                      ...current,
+                      phone: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <label className="lg:col-span-2">
+                <span className={labelClass}>Thẻ</span>
+                <input
+                  className={inputClass}
+                  min="0"
+                  type="number"
+                  value={depositForm.cards}
+                  onChange={(event) =>
+                    setDepositForm((current) => ({
+                      ...current,
+                      cards: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <label className="lg:col-span-2">
+                <span className={labelClass}>Bi</span>
+                <input
+                  className={inputClass}
+                  min="0"
+                  type="number"
+                  value={depositForm.balls}
+                  onChange={(event) =>
+                    setDepositForm((current) => ({
+                      ...current,
+                      balls: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <div className="flex items-end lg:col-span-1">
+                <button className={`${primaryButton} w-full px-3`} type="submit">
+                  <Plus aria-hidden="true" size={18} />
+                  Lưu
+                </button>
+              </div>
+            </form>
+            <p className="mt-3 text-xs text-[#64748B]">
+              Ngày và giờ gửi tự đồng bộ theo giờ online UTC+7 khi bấm lưu.
+            </p>
+          </section>
+
+          <section className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
+            <form
+              className="grid gap-4 lg:grid-cols-12"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void loadDeposits();
+              }}
+            >
+              <label className="lg:col-span-3">
+                <span className={labelClass}>Tìm theo họ tên</span>
+                <input
+                  className={inputClass}
+                  placeholder="Nhập họ tên"
+                  value={filters.name}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, name: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="lg:col-span-3">
+                <span className={labelClass}>Tìm theo SĐT</span>
+                <input
+                  className={inputClass}
+                  inputMode="tel"
+                  placeholder="Nhập số điện thoại"
+                  value={filters.phone}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, phone: event.target.value }))
+                  }
+                />
+              </label>
+              {isAdmin ? (
                 <label className="lg:col-span-2">
                   <span className={labelClass}>Ngày gửi</span>
                   <input
@@ -728,117 +685,119 @@ export default function Dashboard({ user }: { user: AuthUser }) {
                     }
                   />
                 </label>
-                <label className="lg:col-span-2">
-                  <span className={labelClass}>Trạng thái</span>
-                  <select
-                    className={selectClass}
-                    value={filters.status}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, status: event.target.value }))
-                    }
-                  >
-                    <option value="">Tất cả</option>
-                    {statuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row lg:col-span-2 lg:items-end">
-                  <button className={primaryButton} type="submit">
-                    <Search aria-hidden="true" size={20} />
-                    Tìm
-                  </button>
-                  <button
-                    className={secondaryButton}
-                    onClick={() => {
-                      setFilters({ name: "", phone: "", date: "", status: "" });
-                    }}
-                    type="button"
-                  >
-                    <RefreshCw aria-hidden="true" size={20} />
-                    Xóa lọc
-                  </button>
-                </div>
-              </form>
-            </section>
-
-            <section className="overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl shadow-black/20">
-              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-                <h2 className="text-lg font-bold">Danh sách gửi giữ</h2>
-                <button className={secondaryButton} onClick={() => void loadDeposits()} type="button">
-                  <RefreshCw aria-hidden="true" size={20} />
-                  {loading ? "Đang tải" : "Tải lại"}
+              ) : null}
+              <label className={isAdmin ? "lg:col-span-2" : "lg:col-span-3"}>
+                <span className={labelClass}>Trạng thái</span>
+                <select
+                  className={selectClass}
+                  value={filters.status}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, status: event.target.value }))
+                  }
+                >
+                  <option value="">Tất cả</option>
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row lg:col-span-2 lg:items-end">
+                <button className={primaryButton} type="submit">
+                  <Search aria-hidden="true" size={18} />
+                  Tìm
+                </button>
+                <button
+                  className={secondaryButton}
+                  onClick={() => setFilters({ name: "", phone: "", date: "", status: "" })}
+                  type="button"
+                >
+                  <RefreshCw aria-hidden="true" size={18} />
+                  Xóa lọc
                 </button>
               </div>
+            </form>
+          </section>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-[1100px] w-full border-collapse text-left text-sm">
-                  <thead className="bg-slate-950 text-xs uppercase text-slate-300">
+          <section className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
+              <h2 className="text-lg font-bold">Danh sách gửi giữ</h2>
+              <button className={secondaryButton} onClick={() => void loadDeposits()} type="button">
+                <RefreshCw aria-hidden="true" size={18} />
+                {loading ? "Đang tải" : "Tải lại"}
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+                <thead className="bg-[#F8FAFC] text-xs font-bold uppercase text-[#334155]">
+                  <tr>
+                    <th className="px-5 py-3">Họ và tên</th>
+                    <th className="px-5 py-3">SĐT</th>
+                    {isAdmin ? <th className="px-5 py-3">Ngày gửi</th> : null}
+                    {isAdmin ? <th className="px-5 py-3">Giờ gửi</th> : null}
+                    <th className="px-5 py-3 text-right">Thẻ</th>
+                    <th className="px-5 py-3 text-right">Bi</th>
+                    <th className="px-5 py-3">Tổng</th>
+                    <th className="px-5 py-3">Trạng thái</th>
+                    <th className="px-5 py-3">Nhân viên</th>
+                    <th className="px-5 py-3">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5E7EB]">
+                  {deposits.length === 0 ? (
                     <tr>
-                      <th className="px-4 py-3">Họ và tên</th>
-                      <th className="px-4 py-3">SĐT</th>
-                      <th className="px-4 py-3">Ngày gửi</th>
-                      <th className="px-4 py-3">Giờ gửi</th>
-                      <th className="px-4 py-3 text-right">Thẻ</th>
-                      <th className="px-4 py-3 text-right">Bi</th>
-                      <th className="px-4 py-3">Tổng</th>
-                      <th className="px-4 py-3">Trạng thái</th>
-                      <th className="px-4 py-3">Nhân viên</th>
-                      <th className="px-4 py-3">Thao tác</th>
+                      <td
+                        className="px-5 py-8 text-center text-[#64748B]"
+                        colSpan={isAdmin ? 10 : 8}
+                      >
+                        Không có bản ghi.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/10">
-                    {deposits.length === 0 ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-slate-300" colSpan={10}>
-                          Không có bản ghi.
-                        </td>
-                      </tr>
-                    ) : null}
+                  ) : null}
 
-                    {deposits.map((deposit) => (
-                      <Fragment key={deposit.id}>
-                        <tr className="align-top hover:bg-white/[0.03]">
-                          <td className="px-4 py-3 font-semibold text-white">{deposit.fullName}</td>
-                          <td className="px-4 py-3 text-slate-100">{deposit.phone}</td>
-                          <td className="px-4 py-3 text-slate-100">
-                            {formatDate(deposit.depositDate)}
-                          </td>
-                          <td className="px-4 py-3 text-slate-100">{deposit.depositTime}</td>
-                          <td className="px-4 py-3 text-right font-bold text-yellow-100">
-                            {deposit.cards}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-cyan-100">
-                            {deposit.balls}
-                          </td>
-                          <td className="px-4 py-3 text-slate-100">{deposit.totalText}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex rounded border px-2 py-1 text-xs font-bold ${statusClass(
-                                deposit.status,
-                              )}`}
+                  {deposits.map((deposit) => (
+                    <Fragment key={deposit.id}>
+                      <tr className="align-top hover:bg-[#F8FAFC]">
+                        <td className="px-5 py-4 font-semibold">{deposit.fullName}</td>
+                        <td className="px-5 py-4">{deposit.phone}</td>
+                        {isAdmin ? <td className="px-5 py-4">{formatDate(deposit.depositDate)}</td> : null}
+                        {isAdmin ? <td className="px-5 py-4">{deposit.depositTime}</td> : null}
+                        <td className="px-5 py-4 text-right font-semibold">{deposit.cards}</td>
+                        <td className="px-5 py-4 text-right font-semibold">{deposit.balls}</td>
+                        <td className="px-5 py-4">{deposit.totalText}</td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-md px-3 py-1 text-xs font-semibold ${statusClass(
+                              deposit.status,
+                            )}`}
+                          >
+                            {deposit.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div>{actorName(deposit, "created")}</div>
+                          {isAdmin ? (
+                            <div className="text-xs text-[#64748B]">
+                              Sửa: {actorName(deposit, "updated")}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              className={iconButton}
+                              aria-label="Sửa"
+                              onClick={() => openEdit(deposit)}
+                              type="button"
                             >
-                              {deposit.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-300">
-                            <div>{deposit.createdBy?.displayName ?? "N/A"}</div>
-                            <div className="text-xs">Sửa: {deposit.updatedBy?.displayName ?? "N/A"}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-2">
+                              <Save aria-hidden="true" size={16} />
+                            </button>
+                            {isAdmin ? (
                               <button
-                                className="inline-flex h-10 items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-3 font-semibold hover:bg-slate-700"
-                                onClick={() => openEdit(deposit)}
-                                type="button"
-                              >
-                                <Edit3 aria-hidden="true" size={16} />
-                                Sửa
-                              </button>
-                              <button
-                                className="inline-flex h-10 items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-3 font-semibold hover:bg-slate-700"
+                                className={iconButton}
+                                aria-label="Lịch sử"
                                 onClick={() =>
                                   setExpandedHistoryId((current) =>
                                     current === deposit.id ? null : deposit.id,
@@ -846,249 +805,62 @@ export default function Dashboard({ user }: { user: AuthUser }) {
                                 }
                                 type="button"
                               >
-                                <Calendar aria-hidden="true" size={16} />
-                                Lịch sử
+                                <Eye aria-hidden="true" size={16} />
                               </button>
-                              {isAdmin ? (
-                                <button
-                                  className="inline-flex h-10 items-center gap-1 rounded-md border border-red-400/70 bg-red-950 px-3 font-semibold text-red-50 hover:bg-red-900"
-                                  onClick={() => void handleDeleteDeposit(deposit)}
-                                  type="button"
-                                >
-                                  <Trash2 aria-hidden="true" size={16} />
-                                  Xóa
-                                </button>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                        {expandedHistoryId === deposit.id ? (
-                          <tr className="bg-slate-950/70">
-                            <td className="px-4 py-4" colSpan={10}>
-                              <div className="space-y-2">
-                                {deposit.history.map((entry) => (
-                                  <div
-                                    className="rounded-md border border-white/10 bg-[#111827] px-3 py-2"
-                                    key={entry.id || `${entry.at}-${entry.content}`}
-                                  >
-                                    <div className="text-xs font-semibold text-slate-400">
-                                      {formatDateTime(entry.at)} · {entry.actorName} · {entry.action}
-                                    </div>
-                                    <div className="mt-1 text-sm text-slate-100">{entry.content}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        ) : null}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-        ) : (
-          <section className="rounded-lg border border-white/10 bg-[#111827] p-4 shadow-xl shadow-black/20">
-            <div className="mb-4 flex items-center gap-2">
-              <ShieldCheck aria-hidden="true" className="text-yellow-200" size={24} />
-              <h2 className="text-lg font-bold">Quản lý nhân viên</h2>
-            </div>
-
-            <form className="mb-6 grid gap-3 lg:grid-cols-12" onSubmit={handleCreateUser}>
-              <label className="lg:col-span-3">
-                <span className={labelClass}>Tên nhân viên</span>
-                <input
-                  className={inputClass}
-                  value={newUser.displayName}
-                  onChange={(event) =>
-                    setNewUser((current) => ({ ...current, displayName: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-              <label className="lg:col-span-3">
-                <span className={labelClass}>Tài khoản</span>
-                <input
-                  className={inputClass}
-                  value={newUser.username}
-                  onChange={(event) =>
-                    setNewUser((current) => ({ ...current, username: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-              <label className="lg:col-span-3">
-                <span className={labelClass}>Mật khẩu</span>
-                <input
-                  className={inputClass}
-                  type="password"
-                  value={newUser.password}
-                  onChange={(event) =>
-                    setNewUser((current) => ({ ...current, password: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-              <label className="lg:col-span-1">
-                <span className={labelClass}>Role</span>
-                <select
-                  className={selectClass}
-                  value={newUser.role}
-                  onChange={(event) =>
-                    setNewUser((current) => ({ ...current, role: event.target.value as Role }))
-                  }
-                >
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </label>
-              <div className="flex items-end lg:col-span-2">
-                <button className={`${primaryButton} w-full`} type="submit">
-                  <Plus aria-hidden="true" size={20} />
-                  Tạo
-                </button>
-              </div>
-            </form>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full border-collapse text-left text-sm">
-                <thead className="bg-slate-950 text-xs uppercase text-slate-300">
-                  <tr>
-                    <th className="px-4 py-3">Tên</th>
-                    <th className="px-4 py-3">Tài khoản</th>
-                    <th className="px-4 py-3">Role</th>
-                    <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3">Mật khẩu mới</th>
-                    <th className="px-4 py-3">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10">
-                  {users.map((staff) => {
-                    const draft = userDrafts[staff.id];
-
-                    return (
-                      <tr key={staff.id}>
-                        <td className="px-4 py-3">
-                          <input
-                            className={inputClass}
-                            value={draft?.displayName ?? staff.displayName}
-                            onChange={(event) =>
-                              setUserDrafts((current) => ({
-                                ...current,
-                                [staff.id]: {
-                                  displayName: event.target.value,
-                                  role: draft?.role ?? staff.role,
-                                  isActive: draft?.isActive ?? staff.isActive,
-                                  password: draft?.password ?? "",
-                                },
-                              }))
-                            }
-                          />
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-white">{staff.username}</td>
-                        <td className="px-4 py-3">
-                          <select
-                            className={selectClass}
-                            value={draft?.role ?? staff.role}
-                            onChange={(event) =>
-                              setUserDrafts((current) => ({
-                                ...current,
-                                [staff.id]: {
-                                  displayName: draft?.displayName ?? staff.displayName,
-                                  role: event.target.value as Role,
-                                  isActive: draft?.isActive ?? staff.isActive,
-                                  password: draft?.password ?? "",
-                                },
-                              }))
-                            }
-                          >
-                            <option value="staff">Staff</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-3">
-                          <select
-                            className={selectClass}
-                            value={String(draft?.isActive ?? staff.isActive)}
-                            onChange={(event) =>
-                              setUserDrafts((current) => ({
-                                ...current,
-                                [staff.id]: {
-                                  displayName: draft?.displayName ?? staff.displayName,
-                                  role: draft?.role ?? staff.role,
-                                  isActive: event.target.value === "true",
-                                  password: draft?.password ?? "",
-                                },
-                              }))
-                            }
-                          >
-                            <option value="true">Hoạt động</option>
-                            <option value="false">Khóa</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
-                            className={inputClass}
-                            type="password"
-                            value={draft?.password ?? ""}
-                            onChange={(event) =>
-                              setUserDrafts((current) => ({
-                                ...current,
-                                [staff.id]: {
-                                  displayName: draft?.displayName ?? staff.displayName,
-                                  role: draft?.role ?? staff.role,
-                                  isActive: draft?.isActive ?? staff.isActive,
-                                  password: event.target.value,
-                                },
-                              }))
-                            }
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              className={secondaryButton}
-                              onClick={() => void handleSaveUser(staff)}
-                              type="button"
-                            >
-                              <Save aria-hidden="true" size={18} />
-                              Lưu
-                            </button>
-                            {staff.id !== user.id ? (
+                            ) : null}
+                            {isAdmin ? (
                               <button
-                                className={dangerButton}
-                                onClick={() => void handleDeleteUser(staff)}
+                                className={iconButton}
+                                aria-label="Xóa"
+                                onClick={() => void handleDeleteDeposit(deposit)}
                                 type="button"
                               >
-                                <Trash2 aria-hidden="true" size={18} />
-                                Xóa
+                                <Trash2 aria-hidden="true" size={16} />
                               </button>
                             ) : null}
                           </div>
                         </td>
                       </tr>
-                    );
-                  })}
+                      {isAdmin && expandedHistoryId === deposit.id ? (
+                        <tr className="bg-[#F8FAFC]">
+                          <td className="px-5 py-4" colSpan={10}>
+                            <div className="space-y-2">
+                              {deposit.history.map((entry) => (
+                                <div
+                                  className="rounded-md border border-[#E5E7EB] bg-white px-3 py-2"
+                                  key={entry.id || `${entry.at}-${entry.content}`}
+                                >
+                                  <div className="text-xs font-semibold text-[#64748B]">
+                                    {formatDateTime(entry.at)} · {entry.actorName} · {entry.action}
+                                  </div>
+                                  <div className="mt-1 text-sm">{entry.content}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  ))}
                 </tbody>
               </table>
             </div>
           </section>
-        )}
+        </section>
       </div>
 
       {editingDeposit ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
-          <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-white/10 bg-[#111827] p-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/50 px-4 py-6">
+          <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-bold">Cập nhật gửi giữ</h2>
               <button
                 aria-label="Đóng"
-                className="rounded-md border border-slate-500 bg-slate-800 p-2 hover:bg-slate-700"
+                className={iconButton}
                 onClick={() => setEditingDeposit(null)}
                 type="button"
               >
-                <X aria-hidden="true" size={22} />
+                <X aria-hidden="true" size={20} />
               </button>
             </div>
 
@@ -1208,7 +980,7 @@ export default function Dashboard({ user }: { user: AuthUser }) {
                   Hủy
                 </button>
                 <button className={primaryButton} type="submit">
-                  <Save aria-hidden="true" size={20} />
+                  <Save aria-hidden="true" size={18} />
                   Lưu cập nhật
                 </button>
               </div>

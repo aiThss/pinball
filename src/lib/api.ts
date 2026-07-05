@@ -21,46 +21,6 @@ export function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function serializeUserRef(value: unknown) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const user = value as {
-    _id?: { toString: () => string };
-    username?: string;
-    displayName?: string;
-    role?: string;
-  };
-
-  return {
-    id: user._id?.toString() ?? "",
-    username: user.username ?? "",
-    displayName: user.displayName ?? "",
-    role: user.role ?? "",
-  };
-}
-
-export function serializeUser(user: {
-  _id: { toString: () => string };
-  username: string;
-  displayName: string;
-  role: "admin" | "staff";
-  isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
-}) {
-  return {
-    id: user._id.toString(),
-    username: user.username,
-    displayName: user.displayName,
-    role: user.role,
-    isActive: user.isActive,
-    createdAt: user.createdAt?.toISOString(),
-    updatedAt: user.updatedAt?.toISOString(),
-  };
-}
-
 export function serializeDeposit(deposit: {
   toObject: () => Record<string, unknown>;
 }) {
@@ -77,10 +37,12 @@ export function serializeDeposit(deposit: {
     balls: value.balls,
     totalText: value.totalText,
     status: value.status,
+    createdByName: value.createdByName,
+    updatedByName: value.updatedByName,
     createdAt: value.createdAt instanceof Date ? value.createdAt.toISOString() : value.createdAt,
     updatedAt: value.updatedAt instanceof Date ? value.updatedAt.toISOString() : value.updatedAt,
-    createdBy: serializeUserRef(value.createdBy),
-    updatedBy: serializeUserRef(value.updatedBy),
+    createdBy: null,
+    updatedBy: null,
     history: history.map((item) => {
       const entry = item as Record<string, unknown>;
 
