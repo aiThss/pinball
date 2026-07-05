@@ -57,9 +57,51 @@ type Notice = {
   text: string;
 };
 
+type DepositFilters = {
+  name: string;
+  phone: string;
+  date: string;
+  status: string;
+};
+
+type DepositListResponse = {
+  deposits: Deposit[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+};
+
+type DepositSummary = {
+  activeDeposits: number;
+  totalCards: number;
+  totalBalls: number;
+};
+
+type DepositLookup = {
+  found: boolean;
+  phone: string;
+  fullName: string;
+  activeDeposits: number;
+  totalCards: number;
+  totalBalls: number;
+};
+
 const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi quà", "Đã hủy"];
 const staffStorageKey = "pinball_staff_name";
 const appTitle = "Ký gửi PINBALL";
+const emptyFilters: DepositFilters = {
+  name: "",
+  phone: "",
+  date: "",
+  status: "",
+};
+const emptySummary: DepositSummary = {
+  activeDeposits: 0,
+  totalCards: 0,
+  totalBalls: 0,
+};
+const depositPageLimit = 100;
 
 const inputClass =
   "h-12 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[15px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10";
@@ -110,6 +152,10 @@ function actorName(deposit: Deposit, field: "created" | "updated") {
   }
 
   return deposit.updatedByName || deposit.updatedBy?.displayName || "N/A";
+}
+
+function normalizePhoneInput(phone: string) {
+  return phone.trim().replace(/[\s().-]/g, "");
 }
 
 async function apiRequest<T>(url: string, init?: RequestInit) {
@@ -180,20 +226,25 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [summary, setSummary] = useState<DepositSummary>(emptySummary);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: depositPageLimit,
+    hasMore: false,
+  });
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
-  const [filters, setFilters] = useState({
-    name: "",
-    phone: "",
-    date: "",
-    status: "",
-  });
+  const [filters, setFilters] = useState<DepositFilters>(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState<DepositFilters>(emptyFilters);
   const [depositForm, setDepositForm] = useState({
     fullName: "",
     phone: "",
     cards: "0",
     balls: "0",
   });
+  const [depositLookup, setDepositLookup] = useState<DepositLookup | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     fullName: "",
     phone: "",
@@ -225,26 +276,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     };
   }, []);
 
-  const activeDeposits = useMemo(
-    () => deposits.filter((deposit) => deposit.status === "Đang gửi").length,
-    [deposits],
-  );
-
-  const totalCards = useMemo(
-    () =>
-      deposits
-        .filter((deposit) => deposit.status === "Đang gửi")
-        .reduce((sum, deposit) => sum + deposit.cards, 0),
-    [deposits],
-  );
-
-  const totalBalls = useMemo(
-    () =>
-      deposits
-        .filter((deposit) => deposit.status === "Đang gửi")
-        .reduce((sum, deposit) => sum + deposit.balls, 0),
-    [deposits],
-  );
+  const { activeDeposits, totalCards, totalBalls } = summary;
+  const normalizedDepositPhone = normalizePhoneInput(depositForm.phone);
+  const activeDepositLookup =
+    normalizedDepositPhone.length >= 8 && depositLookup?.phone === normalizedDepositPhone
+      ? depositLookup
+      : null;
 
   const todayDeposits = useMemo(
     () => deposits.filter((deposit) => deposit.depositDate === (clock?.date ?? getHanoiParts().date)).length,
@@ -256,43 +293,68 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     [deposits],
   );
 
+  const pendingDepositTotals = useMemo(() => {
+    if (!activeDepositLookup?.found) {
+      return null;
+    }
+
+    return {
+      cards: activeDepositLookup.totalCards + (Number(depositForm.cards) || 0),
+      balls: activeDepositLookup.totalBalls + (Number(depositForm.balls) || 0),
+    };
+  }, [activeDepositLookup, depositForm.balls, depositForm.cards]);
+
   const showNotice = useCallback((type: Notice["type"], text: string) => {
     setNotice({ type, text });
   }, []);
 
-  const loadDeposits = useCallback(async () => {
+  const loadSummary = useCallback(async () => {
+    try {
+      const data = await apiRequest<DepositSummary>("/api/deposits/summary");
+      setSummary(data);
+    } catch (error) {
+      showNotice("error", error instanceof Error ? error.message : "Không tải được tổng.");
+    }
+  }, [showNotice]);
+
+  const loadDeposits = useCallback(async (filterValues: DepositFilters, pageToLoad = 1, append = false) => {
     setLoading(true);
 
     try {
       const params = new URLSearchParams();
+      params.set("page", String(pageToLoad));
+      params.set("limit", String(depositPageLimit));
 
-      if (filters.name.trim()) {
-        params.set("name", filters.name.trim());
+      if (filterValues.name.trim()) {
+        params.set("name", filterValues.name.trim());
       }
 
-      if (filters.phone.trim()) {
-        params.set("phone", filters.phone.trim());
+      if (filterValues.phone.trim()) {
+        params.set("phone", filterValues.phone.trim());
       }
 
-      if (isAdmin && filters.date) {
-        params.set("date", filters.date);
+      if (isAdmin && filterValues.date) {
+        params.set("date", filterValues.date);
       }
 
-      if (filters.status) {
-        params.set("status", filters.status);
+      if (filterValues.status) {
+        params.set("status", filterValues.status);
       }
 
-      const query = params.toString();
-      const data = await apiRequest<{ deposits: Deposit[] }>(
-        `/api/deposits${query ? `?${query}` : ""}`,
-      );
-      setDeposits(data.deposits);
+      const data = await apiRequest<DepositListResponse>(`/api/deposits?${params.toString()}`);
+      setDeposits((current) => (append ? [...current, ...data.deposits] : data.deposits));
+      setPagination({
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+        hasMore: data.hasMore,
+      });
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không tải được dữ liệu.");
     } finally {
       setLoading(false);
     }
-  }, [filters, isAdmin, showNotice]);
+  }, [isAdmin, showNotice]);
 
   useEffect(() => {
     if (!staffName) {
@@ -300,11 +362,85 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     }
 
     const timeoutId = window.setTimeout(() => {
-      void loadDeposits();
+      void loadSummary();
+      void loadDeposits(emptyFilters, 1);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [loadDeposits, staffName]);
+  }, [loadDeposits, loadSummary, staffName]);
+
+  useEffect(() => {
+    if (normalizedDepositPhone.length < 8) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setLookupLoading(true);
+
+      try {
+        const data = await apiRequest<DepositLookup>(
+          `/api/deposits/lookup?phone=${encodeURIComponent(normalizedDepositPhone)}`,
+          { signal: controller.signal },
+        );
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setDepositLookup(data.found ? data : null);
+
+        if (data.found && data.fullName) {
+          setDepositForm((current) => {
+            if (normalizePhoneInput(current.phone) !== data.phone || current.fullName.trim()) {
+              return current;
+            }
+
+            return {
+              ...current,
+              fullName: data.fullName,
+            };
+          });
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setDepositLookup(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLookupLoading(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [normalizedDepositPhone]);
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const nextFilters = { ...filters };
+    setAppliedFilters(nextFilters);
+    void loadDeposits(nextFilters, 1);
+  }
+
+  function handleClearFilters() {
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    void loadDeposits(emptyFilters, 1);
+  }
+
+  function handleReloadDeposits() {
+    void loadSummary();
+    void loadDeposits(appliedFilters, 1);
+  }
+
+  function handleLoadMore() {
+    void loadDeposits(appliedFilters, pagination.page + 1, true);
+  }
 
   if (!staffName) {
     return <StaffGate onEnter={setStaffName} />;
@@ -314,7 +450,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     event.preventDefault();
 
     try {
-      const data = await apiRequest<{ deposit: Deposit }>("/api/deposits", {
+      const data = await apiRequest<{ deposit: Deposit; merged?: boolean }>("/api/deposits", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -327,14 +463,25 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         }),
       });
 
-      setDeposits((current) => [data.deposit, ...current]);
+      setDeposits((current) => {
+        const existingIndex = current.findIndex((deposit) => deposit.id === data.deposit.id);
+
+        if (existingIndex === -1) {
+          return [data.deposit, ...current];
+        }
+
+        return current.map((deposit) => (deposit.id === data.deposit.id ? data.deposit : deposit));
+      });
       setDepositForm({
         fullName: "",
         phone: "",
         cards: "0",
         balls: "0",
       });
-      showNotice("success", "Đã lưu bản ghi gửi giữ.");
+      setDepositLookup(null);
+      void loadSummary();
+      void loadDeposits(appliedFilters, 1);
+      showNotice("success", data.merged ? "Đã cộng vào SĐT đang gửi." : "Đã lưu bản ghi gửi giữ.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không lưu được bản ghi.");
     }
@@ -390,6 +537,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         current.map((deposit) => (deposit.id === data.deposit.id ? data.deposit : deposit)),
       );
       setEditingDeposit(null);
+      void loadSummary();
       showNotice("success", "Đã cập nhật bản ghi.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không cập nhật được.");
@@ -408,6 +556,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         method: "DELETE",
       });
       setDeposits((current) => current.filter((item) => item.id !== deposit.id));
+      void loadSummary();
       showNotice("success", "Đã xóa bản ghi.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không xóa được.");
@@ -836,6 +985,19 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   }
                   required
                 />
+                {lookupLoading && normalizedDepositPhone.length >= 8 ? (
+                  <span className="mt-2 block text-xs font-semibold leading-5 text-[#64748B]">
+                    Đang kiểm tra SĐT...
+                  </span>
+                ) : activeDepositLookup?.found && pendingDepositTotals ? (
+                  <span className="mt-2 block text-xs font-semibold leading-5 text-[#2563EB]">
+                    Hiện có: {activeDepositLookup.totalCards} thẻ, {activeDepositLookup.totalBalls} bi - Sau lưu:{" "}
+                    {pendingDepositTotals.cards} thẻ, {pendingDepositTotals.balls} bi
+                    {activeDepositLookup.activeDeposits > 1
+                      ? ` - ${activeDepositLookup.activeDeposits} dòng cùng SĐT`
+                      : ""}
+                  </span>
+                ) : null}
               </label>
 
               <div className="grid grid-cols-2 gap-3 sm:col-span-2 lg:contents">
@@ -886,10 +1048,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
             <form
               className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void loadDeposits();
-              }}
+              onSubmit={handleSearch}
             >
               <label className="lg:col-span-3">
                 <span className={labelClass}>Tìm theo họ tên</span>
@@ -951,7 +1110,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </button>
                 <button
                   className={`${secondaryButton} w-full`}
-                  onClick={() => setFilters({ name: "", phone: "", date: "", status: "" })}
+                  onClick={handleClearFilters}
                   type="button"
                 >
                   <RefreshCw aria-hidden="true" size={18} />
@@ -985,7 +1144,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </button>
                 <button
                   className={`${secondaryButton} w-full sm:w-auto`}
-                  onClick={() => void loadDeposits()}
+                  onClick={handleReloadDeposits}
                   type="button"
                 >
                   <RefreshCw aria-hidden="true" size={18} />
@@ -1224,6 +1383,23 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </tbody>
               </table>
             </div>
+
+            {pagination.hasMore ? (
+              <div className="flex flex-col items-center gap-2 border-t border-[#E5E7EB] px-4 py-4 sm:px-5">
+                <button
+                  className={secondaryButton}
+                  disabled={loading}
+                  onClick={handleLoadMore}
+                  type="button"
+                >
+                  <RefreshCw aria-hidden="true" size={18} />
+                  {loading ? "Đang tải" : "Tải thêm"}
+                </button>
+                <div className="text-xs text-[#64748B]">
+                  Đã hiển thị {deposits.length}/{pagination.total}
+                </div>
+              </div>
+            ) : null}
           </section>
         </section>
       </div>

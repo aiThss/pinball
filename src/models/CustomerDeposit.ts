@@ -133,6 +133,7 @@ const CustomerDepositSchema = new Schema<ICustomerDeposit>(
 
 CustomerDepositSchema.index({ createdAt: -1 });
 CustomerDepositSchema.index({ fullName: "text", phone: "text" });
+CustomerDepositSchema.index({ phone: 1, status: 1, createdAt: -1 });
 
 export const CustomerDeposit =
   (models.CustomerDeposit as Model<ICustomerDeposit> | undefined) ??
