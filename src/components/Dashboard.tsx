@@ -2,11 +2,13 @@
 
 import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import type { Cell, Sheet, SheetData } from "write-excel-file/browser";
 import {
   CalendarDays,
   Clock3,
   Coins,
   Eye,
+  FileDown,
   LayoutDashboard,
   LogOut,
   Plus,
@@ -190,6 +192,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [clock, setClock] = useState(getHanoiParts());
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
@@ -414,6 +417,162 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   function switchStaff() {
     localStorage.removeItem(staffStorageKey);
     setStaffName("");
+  }
+
+  async function handleExportExcel() {
+    if (deposits.length === 0) {
+      showNotice("error", "Không có dữ liệu để xuất Excel.");
+      return;
+    }
+
+    setExporting(true);
+
+    try {
+      const { default: writeExcelFile } = await import("write-excel-file/browser");
+      const exportedAt = getHanoiParts();
+      const titleCell: Cell = {
+        value: "Pinball Deposit - Danh sách gửi giữ",
+        fontWeight: "bold",
+        fontSize: 16,
+      };
+      const noteCell: Cell = {
+        value: `Xuất lúc ${exportedAt.time} ${formatDate(exportedAt.date)} - Nhân viên: ${staffName}`,
+        textColor: "#64748B",
+      };
+      const headerStyle = {
+        fontWeight: "bold" as const,
+        backgroundColor: "#F1F5F9",
+        textColor: "#0F172A",
+        borderColor: "#CBD5E1",
+        borderStyle: "thin" as const,
+      };
+      const header = (value: string): Cell => ({
+        value,
+        ...headerStyle,
+      });
+      const depositRows = deposits.map((deposit, index) => [
+        index + 1,
+        deposit.fullName,
+        deposit.phone,
+        formatDate(deposit.depositDate),
+        deposit.depositTime,
+        deposit.cards,
+        deposit.balls,
+        deposit.totalText,
+        deposit.status,
+        actorName(deposit, "created"),
+        actorName(deposit, "updated"),
+        formatDateTime(deposit.createdAt),
+        formatDateTime(deposit.updatedAt),
+      ]);
+      const depositSheet: SheetData = [
+        [titleCell],
+        [noteCell],
+        [],
+        [
+          header("STT"),
+          header("Họ và tên"),
+          header("SĐT"),
+          header("Ngày gửi"),
+          header("Giờ gửi"),
+          header("Thẻ"),
+          header("Bi"),
+          header("Tổng"),
+          header("Trạng thái"),
+          header("Nhân viên tạo"),
+          header("Nhân viên sửa"),
+          header("Tạo lúc"),
+          header("Cập nhật lúc"),
+        ],
+        ...depositRows,
+      ];
+      const sheets: Sheet<Blob>[] = [
+        {
+          sheet: "Gui giu",
+          data: depositSheet,
+          columns: [
+            { width: 8 },
+            { width: 26 },
+            { width: 18 },
+            { width: 14 },
+            { width: 12 },
+            { width: 10 },
+            { width: 10 },
+            { width: 32 },
+            { width: 16 },
+            { width: 18 },
+            { width: 18 },
+            { width: 20 },
+            { width: 20 },
+          ],
+          stickyRowsCount: 4,
+        },
+      ];
+
+      if (isAdmin) {
+        const historyRows = deposits.flatMap((deposit) =>
+          deposit.history.map((entry) => [
+            deposit.fullName,
+            deposit.phone,
+            formatDate(deposit.depositDate),
+            deposit.depositTime,
+            entry.actorName,
+            entry.action,
+            formatDateTime(entry.at),
+            entry.content,
+          ]),
+        );
+
+        sheets.push({
+          sheet: "Lich su",
+          data: [
+            [
+              {
+                value: "Pinball Deposit - Lịch sử cập nhật",
+                fontWeight: "bold",
+                fontSize: 16,
+              },
+            ],
+            [noteCell],
+            [],
+            [
+              header("Họ và tên"),
+              header("SĐT"),
+              header("Ngày gửi"),
+              header("Giờ gửi"),
+              header("Nhân viên"),
+              header("Hành động"),
+              header("Thời gian"),
+              header("Nội dung thay đổi"),
+            ],
+            ...historyRows,
+          ],
+          columns: [
+            { width: 26 },
+            { width: 18 },
+            { width: 14 },
+            { width: 12 },
+            { width: 18 },
+            { width: 14 },
+            { width: 20 },
+            { width: 56 },
+          ],
+          stickyRowsCount: 4,
+        });
+      }
+
+      await writeExcelFile(sheets, {
+        fontFamily: "Arial",
+        fontSize: 11,
+      }).toFile(
+        `pinball-gui-giu-${exportedAt.date}-${exportedAt.shortTime.replace(":", "-")}.xlsx`,
+      );
+      showNotice("success", "Đã xuất file Excel.");
+    } catch (error) {
+      showNotice("error", error instanceof Error ? error.message : "Không xuất được Excel.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -723,10 +882,21 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           <section className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
               <h2 className="text-lg font-bold">Danh sách gửi giữ</h2>
-              <button className={secondaryButton} onClick={() => void loadDeposits()} type="button">
-                <RefreshCw aria-hidden="true" size={18} />
-                {loading ? "Đang tải" : "Tải lại"}
-              </button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  className={secondaryButton}
+                  disabled={exporting || deposits.length === 0}
+                  onClick={() => void handleExportExcel()}
+                  type="button"
+                >
+                  <FileDown aria-hidden="true" size={18} />
+                  {exporting ? "Đang xuất" : "Xuất Excel"}
+                </button>
+                <button className={secondaryButton} onClick={() => void loadDeposits()} type="button">
+                  <RefreshCw aria-hidden="true" size={18} />
+                  {loading ? "Đang tải" : "Tải lại"}
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
