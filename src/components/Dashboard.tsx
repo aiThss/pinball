@@ -20,6 +20,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { formatDate, getHanoiParts } from "@/lib/time";
 
 type Mode = "staff" | "admin";
 type Status = "Đang gửi" | "Đã nhận lại" | "Đã đổi quà" | "Đã hủy";
@@ -71,22 +72,6 @@ const secondaryButton =
   "inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[#CBD5E1] bg-white px-4 text-sm font-semibold text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC] disabled:opacity-50";
 const iconButton =
   "inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]";
-
-function getHanoiParts(date = new Date()) {
-  const hanoiDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-  const iso = hanoiDate.toISOString();
-
-  return {
-    date: iso.slice(0, 10),
-    time: iso.slice(11, 19),
-    shortTime: iso.slice(11, 16),
-  };
-}
-
-function formatDate(value: string) {
-  const [year, month, day] = value.split("-");
-  return year && month && day ? `${day}/${month}/${year}` : value;
-}
 
 function formatDateTime(value?: string) {
   if (!value) {
@@ -190,7 +175,7 @@ function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
 export default function Dashboard({ mode }: { mode: Mode }) {
   const isAdmin = mode === "admin";
   const [staffName, setStaffName] = useState(isAdmin ? "Admin" : "");
-  const [clock, setClock] = useState(getHanoiParts());
+  const [clock, setClock] = useState<ReturnType<typeof getHanoiParts> | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -232,8 +217,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }, [isAdmin]);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => setClock(getHanoiParts()), 0);
     const intervalId = window.setInterval(() => setClock(getHanoiParts()), 1000);
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const activeDeposits = useMemo(
@@ -258,8 +247,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   );
 
   const todayDeposits = useMemo(
-    () => deposits.filter((deposit) => deposit.depositDate === clock.date).length,
-    [clock.date, deposits],
+    () => deposits.filter((deposit) => deposit.depositDate === (clock?.date ?? getHanoiParts().date)).length,
+    [clock?.date, deposits],
   );
 
   const historyEntries = useMemo(
@@ -428,6 +417,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   function switchStaff() {
     localStorage.removeItem(staffStorageKey);
     setStaffName("");
+  }
+
+  async function handleAdminLogout() {
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST" });
+      window.location.href = "/";
+    } catch (error) {
+      showNotice("error", error instanceof Error ? error.message : "Không đăng xuất được.");
+    }
   }
 
   async function handleExportExcel() {
@@ -613,8 +611,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-4">
             <div className="text-right text-xs font-semibold sm:text-sm">
-              <div>{clock.time}</div>
-              <div className="font-normal text-[#64748B]">{formatDate(clock.date)}</div>
+              {clock ? (
+                <>
+                  <div>{clock.time}</div>
+                  <div className="font-normal text-[#64748B]">{formatDate(clock.date)}</div>
+                </>
+              ) : (
+                <div className="h-9 w-20 animate-pulse rounded bg-[#E2E8F0]" />
+              )}
             </div>
             <div className="hidden h-10 w-px bg-[#E5E7EB] sm:block" />
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -639,7 +643,17 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 >
                   <LogOut aria-hidden="true" size={17} />
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  aria-label="Đăng xuất Admin"
+                  className={iconButton}
+                  onClick={handleAdminLogout}
+                  type="button"
+                  title="Đăng xuất Admin"
+                >
+                  <LogOut aria-hidden="true" size={17} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -671,16 +685,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         </aside>
 
         <section className="space-y-4 px-3 py-4 pb-8 sm:px-4 lg:space-y-5 lg:px-6">
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-end sm:gap-3">
-            <Link className={`${isAdmin ? secondaryButton : primaryButton} w-full sm:w-auto`} href="/">
-              <Ticket aria-hidden="true" size={18} />
-              Gửi giữ
-            </Link>
-            <Link className={`${isAdmin ? primaryButton : secondaryButton} w-full sm:w-auto`} href="/admin">
-              <Eye aria-hidden="true" size={18} />
-              Admin
-            </Link>
-          </div>
+          {isAdmin ? (
+            <div className="flex sm:items-center sm:justify-end">
+              <Link className={secondaryButton} href="/">
+                <Ticket aria-hidden="true" size={18} />
+                Xem trang nhân viên
+              </Link>
+            </div>
+          ) : null}
 
           {isAdmin ? (
             <section className="rounded-lg border border-[#CBD5E1] bg-white p-4 shadow-sm sm:p-5">

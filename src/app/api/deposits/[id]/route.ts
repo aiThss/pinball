@@ -5,6 +5,7 @@ import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
 import { depositUpdateSchema } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
+import { verifyAdmin } from "@/lib/auth";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -49,6 +50,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const body = await request.json();
     const data = depositUpdateSchema.parse(body);
 
+    const isModifyingAdminFields =
+      data.fullName !== undefined ||
+      data.phone !== undefined ||
+      data.depositDate !== undefined ||
+      data.depositTime !== undefined;
+
+    if (isModifyingAdminFields) {
+      const isApproved = await verifyAdmin();
+      if (!isApproved) {
+        return jsonError("Bạn không có quyền chỉnh sửa các thông tin quản trị này.", 403);
+      }
+    }
+
     await connectMongo();
 
     const deposit = await CustomerDeposit.findById(id);
@@ -88,19 +102,28 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  try {
+    const isApproved = await verifyAdmin();
+    if (!isApproved) {
+      return jsonError("Bạn không có quyền xóa bản ghi.", 403);
+    }
 
-  if (!Types.ObjectId.isValid(id)) {
-    return jsonError("Bản ghi không hợp lệ.", 400);
+    const { id } = await context.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return jsonError("Bản ghi không hợp lệ.", 400);
+    }
+
+    await connectMongo();
+    const deleted = await CustomerDeposit.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return jsonError("Không tìm thấy bản ghi.", 404);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return jsonError(parseError(error), 500);
   }
-
-  await connectMongo();
-  const deleted = await CustomerDeposit.findByIdAndDelete(id);
-
-  if (!deleted) {
-    return jsonError("Không tìm thấy bản ghi.", 404);
-  }
-
-  return NextResponse.json({ ok: true });
 }
