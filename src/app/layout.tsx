@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pinball Deposit Manager",
+  title: "Ký gửi PINBALL",
   description: "Quản lý gửi giữ bi pinball và thẻ đổi quà cho cửa hàng.",
 };
 

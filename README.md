@@ -1,4 +1,4 @@
-# Pinball Deposit Manager
+# Ký gửi PINBALL
 
 Web app nội bộ để nhân viên lưu và truy xuất khách gửi giữ thẻ đổi quà và bi pinball.
 

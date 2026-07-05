@@ -58,6 +58,7 @@ type Notice = {
 
 const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi quà", "Đã hủy"];
 const staffStorageKey = "pinball_staff_name";
+const appTitle = "Ký gửi PINBALL";
 
 const inputClass =
   "h-12 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[15px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10";
@@ -160,7 +161,7 @@ function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
             <UserRound aria-hidden="true" size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Pinball Deposit</h1>
+            <h1 className="text-2xl font-bold">{appTitle}</h1>
             <p className="text-sm text-[#64748B]">Nhập tên nhân viên ca hiện tại</p>
           </div>
         </div>
@@ -441,7 +442,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       const { default: writeExcelFile } = await import("write-excel-file/browser");
       const exportedAt = getHanoiParts();
       const titleCell: Cell = {
-        value: "Pinball Deposit - Danh sách gửi giữ",
+        value: `${appTitle} - Danh sách gửi giữ`,
         fontWeight: "bold",
         fontSize: 16,
       };
@@ -538,7 +539,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           data: [
             [
               {
-                value: "Pinball Deposit - Lịch sử cập nhật",
+                value: `${appTitle} - Lịch sử cập nhật`,
                 fontWeight: "bold",
                 fontSize: 16,
               },
@@ -596,7 +597,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-base font-bold leading-tight sm:text-lg">
-                  {isAdmin ? "Pinball Admin" : "Pinball Deposit"}
+                  {isAdmin ? `Admin ${appTitle}` : appTitle}
                 </h1>
                 {isAdmin ? (
                   <span className="rounded-full bg-[#111827] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
