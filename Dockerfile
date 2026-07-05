@@ -2,9 +2,11 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
+RUN rm -rf /app/.next/standalone/node_modules/sharp \
+  /app/.next/standalone/node_modules/@img
 
 FROM node:24-alpine AS runner
 WORKDIR /app
