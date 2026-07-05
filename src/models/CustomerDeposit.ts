@@ -1,0 +1,128 @@
+import { model, models, Schema, type Document, type Model, type Types } from "mongoose";
+import { depositStatuses } from "@/lib/validation";
+
+export interface IHistoryEntry {
+  at: Date;
+  actorId: Types.ObjectId;
+  actorName: string;
+  action: "CREATE" | "UPDATE";
+  content: string;
+}
+
+export interface ICustomerDeposit extends Document {
+  _id: Types.ObjectId;
+  fullName: string;
+  phone: string;
+  depositDate: string;
+  depositTime: string;
+  cards: number;
+  balls: number;
+  totalText: string;
+  status: (typeof depositStatuses)[number];
+  createdBy: Types.ObjectId;
+  updatedBy: Types.ObjectId;
+  history: IHistoryEntry[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const HistorySchema = new Schema<IHistoryEntry>(
+  {
+    at: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+    actorId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    actorName: {
+      type: String,
+      required: true,
+    },
+    action: {
+      type: String,
+      enum: ["CREATE", "UPDATE"],
+      required: true,
+    },
+    content: {
+      type: String,
+      required: true,
+    },
+  },
+  { _id: true },
+);
+
+const CustomerDepositSchema = new Schema<ICustomerDeposit>(
+  {
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
+    depositDate: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    depositTime: {
+      type: String,
+      required: true,
+    },
+    cards: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    balls: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    totalText: {
+      type: String,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: depositStatuses,
+      default: "Đang gửi",
+      required: true,
+      index: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    history: {
+      type: [HistorySchema],
+      default: [],
+    },
+  },
+  {
+    collection: "customers_deposits",
+    timestamps: true,
+  },
+);
+
+CustomerDepositSchema.index({ createdAt: -1 });
+CustomerDepositSchema.index({ fullName: "text", phone: "text" });
+
+export const CustomerDeposit =
+  (models.CustomerDeposit as Model<ICustomerDeposit> | undefined) ??
+  model<ICustomerDeposit>("CustomerDeposit", CustomerDepositSchema);
