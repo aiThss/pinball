@@ -256,6 +256,16 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     [deposits],
   );
 
+  const todayDeposits = useMemo(
+    () => deposits.filter((deposit) => deposit.depositDate === clock.date).length,
+    [clock.date, deposits],
+  );
+
+  const historyEntries = useMemo(
+    () => deposits.reduce((sum, deposit) => sum + deposit.history.length, 0),
+    [deposits],
+  );
+
   const showNotice = useCallback((type: Notice["type"], text: string) => {
     setNotice({ type, text });
   }, []);
@@ -576,30 +586,38 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+    <main className={`min-h-screen text-[#0F172A] ${isAdmin ? "bg-[#F1F5F9]" : "bg-[#F8FAFC]"}`}>
       <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:flex">
-              <LayoutDashboard aria-hidden="true" className="text-[#334155]" size={22} />
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#111827] text-white sm:h-11 sm:w-11">
+              {isAdmin ? <Eye aria-hidden="true" size={22} /> : <Ticket aria-hidden="true" size={22} />}
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#111827] text-white">
-              <Ticket aria-hidden="true" size={23} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-tight">Pinball Deposit</h1>
-              <p className="text-sm text-[#64748B]">Quản lý gửi bi & thẻ</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-base font-bold leading-tight sm:text-lg">
+                  {isAdmin ? "Pinball Admin" : "Pinball Deposit"}
+                </h1>
+                {isAdmin ? (
+                  <span className="rounded-full bg-[#111827] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                    Audit
+                  </span>
+                ) : null}
+              </div>
+              <p className="truncate text-xs text-[#64748B] sm:text-sm">
+                {isAdmin ? "Kiểm tra ngày giờ, thẻ, bi và lịch sử" : "Nhập nhanh gửi giữ tại quầy"}
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="text-right text-sm font-semibold">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-4">
+            <div className="text-right text-xs font-semibold sm:text-sm">
               <div>{clock.time}</div>
               <div className="font-normal text-[#64748B]">{formatDate(clock.date)}</div>
             </div>
-            <div className="h-10 w-px bg-[#E5E7EB]" />
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E5E7EB] text-sm font-semibold">
+            <div className="hidden h-10 w-px bg-[#E5E7EB] sm:block" />
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E5E7EB] text-xs font-semibold sm:h-10 sm:w-10 sm:text-sm">
                 {staffName
                   .split(" ")
                   .map((part) => part[0])
@@ -607,7 +625,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   .slice(0, 2)
                   .toUpperCase()}
               </div>
-              <div>
+              <div className="hidden min-w-0 min-[420px]:block">
                 <div className="text-sm font-bold">{staffName}</div>
                 <div className="text-xs text-[#64748B]">{isAdmin ? "Admin" : "Nhân viên"}</div>
               </div>
@@ -651,17 +669,44 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           </nav>
         </aside>
 
-        <section className="space-y-5 px-4 py-5 lg:px-6">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <Link className={isAdmin ? secondaryButton : primaryButton} href="/">
+        <section className="space-y-4 px-3 py-4 pb-8 sm:px-4 lg:space-y-5 lg:px-6">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-end sm:gap-3">
+            <Link className={`${isAdmin ? secondaryButton : primaryButton} w-full sm:w-auto`} href="/">
               <Ticket aria-hidden="true" size={18} />
               Gửi giữ
             </Link>
-            <Link className={isAdmin ? primaryButton : secondaryButton} href="/admin">
+            <Link className={`${isAdmin ? primaryButton : secondaryButton} w-full sm:w-auto`} href="/admin">
               <Eye aria-hidden="true" size={18} />
               Admin
             </Link>
           </div>
+
+          {isAdmin ? (
+            <section className="rounded-lg border border-[#CBD5E1] bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="mb-2 inline-flex rounded-full bg-[#111827] px-3 py-1 text-xs font-bold uppercase text-white">
+                    Trang admin
+                  </div>
+                  <h2 className="text-xl font-bold">Bảng kiểm tra chi tiết</h2>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">
+                    Dùng để đối soát ngày giờ gửi, nhân viên thao tác, lịch sử cập nhật và xuất
+                    Excel. Trang nhân viên chỉ giữ luồng nhập nhanh.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm sm:min-w-[280px]">
+                  <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                    <div className="text-xs font-semibold text-[#64748B]">Bản ghi hôm nay</div>
+                    <div className="mt-1 text-2xl font-bold">{todayDeposits}</div>
+                  </div>
+                  <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                    <div className="text-xs font-semibold text-[#64748B]">Dòng lịch sử</div>
+                    <div className="mt-1 text-2xl font-bold">{historyEntries}</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           {notice ? (
             <div
@@ -683,46 +728,71 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             </div>
           ) : null}
 
-          <section className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F1F5F9]">
-                  <Ticket aria-hidden="true" size={24} />
+          <section className={`grid gap-3 ${isAdmin ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 md:grid-cols-3"}`}>
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] sm:h-14 sm:w-14">
+                  <Ticket aria-hidden="true" size={22} />
                 </div>
-                <div>
-                  <div className="text-sm text-[#334155]">Đang gửi</div>
-                  <div className="text-3xl font-bold">{activeDeposits}</div>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F1F5F9]">
-                  <CalendarDays aria-hidden="true" size={24} />
-                </div>
-                <div>
-                  <div className="text-sm text-[#334155]">Tổng thẻ còn giữ</div>
-                  <div className="text-3xl font-bold">{totalCards}</div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-[#334155] sm:text-sm">Đang gửi</div>
+                  <div className="text-2xl font-bold sm:text-3xl">{activeDeposits}</div>
                 </div>
               </div>
             </div>
-            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F1F5F9]">
-                  <Coins aria-hidden="true" size={24} />
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] sm:h-14 sm:w-14">
+                  <CalendarDays aria-hidden="true" size={22} />
                 </div>
-                <div>
-                  <div className="text-sm text-[#334155]">Tổng bi còn giữ</div>
-                  <div className="text-3xl font-bold">{totalBalls}</div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-[#334155] sm:text-sm">Thẻ còn giữ</div>
+                  <div className="text-2xl font-bold sm:text-3xl">{totalCards}</div>
                 </div>
               </div>
             </div>
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] sm:h-14 sm:w-14">
+                  <Coins aria-hidden="true" size={22} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-[#334155] sm:text-sm">Bi còn giữ</div>
+                  <div className="text-2xl font-bold sm:text-3xl">{totalBalls}</div>
+                </div>
+              </div>
+            </div>
+            {isAdmin ? (
+              <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] sm:h-14 sm:w-14">
+                    <Clock3 aria-hidden="true" size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-[#334155] sm:text-sm">Hôm nay</div>
+                    <div className="text-2xl font-bold sm:text-3xl">{todayDeposits}</div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </section>
 
-          <section className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold">Nhập gửi giữ</h2>
-            <form className="grid gap-4 lg:grid-cols-12" onSubmit={handleCreateDeposit}>
-              <label className="lg:col-span-4">
+          <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold">{isAdmin ? "Tạo bản ghi mới" : "Nhập gửi giữ"}</h2>
+                <p className="text-xs text-[#64748B]">
+                  Ngày và giờ gửi tự đồng bộ theo UTC+7 khi bấm lưu.
+                </p>
+              </div>
+              {isAdmin ? (
+                <span className="inline-flex w-fit rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-semibold text-[#334155]">
+                  Admin vẫn sửa được ngày/giờ trong chi tiết bản ghi
+                </span>
+              ) : null}
+            </div>
+            <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4" onSubmit={handleCreateDeposit}>
+              <label className="sm:col-span-2 lg:col-span-4">
                 <span className={labelClass}>Họ và tên khách</span>
                 <input
                   className={inputClass}
@@ -738,7 +808,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 />
               </label>
 
-              <label className="lg:col-span-3">
+              <label className="sm:col-span-2 lg:col-span-3">
                 <span className={labelClass}>Số điện thoại</span>
                 <input
                   className={inputClass}
@@ -755,55 +825,54 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 />
               </label>
 
-              <label className="lg:col-span-2">
-                <span className={labelClass}>Thẻ</span>
-                <input
-                  className={inputClass}
-                  min="0"
-                  type="number"
-                  value={depositForm.cards}
-                  onChange={(event) =>
-                    setDepositForm((current) => ({
-                      ...current,
-                      cards: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-3 sm:col-span-2 lg:contents">
+                <label className="lg:col-span-2">
+                  <span className={labelClass}>Thẻ</span>
+                  <input
+                    className={inputClass}
+                    min="0"
+                    type="number"
+                    value={depositForm.cards}
+                    onChange={(event) =>
+                      setDepositForm((current) => ({
+                        ...current,
+                        cards: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
 
-              <label className="lg:col-span-2">
-                <span className={labelClass}>Bi</span>
-                <input
-                  className={inputClass}
-                  min="0"
-                  type="number"
-                  value={depositForm.balls}
-                  onChange={(event) =>
-                    setDepositForm((current) => ({
-                      ...current,
-                      balls: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
+                <label className="lg:col-span-2">
+                  <span className={labelClass}>Bi</span>
+                  <input
+                    className={inputClass}
+                    min="0"
+                    type="number"
+                    value={depositForm.balls}
+                    onChange={(event) =>
+                      setDepositForm((current) => ({
+                        ...current,
+                        balls: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+              </div>
 
-              <div className="flex items-end lg:col-span-1">
+              <div className="flex items-end sm:col-span-2 lg:col-span-1">
                 <button className={`${primaryButton} w-full px-3`} type="submit">
                   <Plus aria-hidden="true" size={18} />
                   Lưu
                 </button>
               </div>
             </form>
-            <p className="mt-3 text-xs text-[#64748B]">
-              Ngày và giờ gửi tự đồng bộ theo giờ online UTC+7 khi bấm lưu.
-            </p>
           </section>
 
-          <section className="rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
             <form
-              className="grid gap-4 lg:grid-cols-12"
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
                 void loadDeposits();
@@ -845,7 +914,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   />
                 </label>
               ) : null}
-              <label className={isAdmin ? "lg:col-span-2" : "lg:col-span-3"}>
+              <label className={isAdmin ? "lg:col-span-2" : "sm:col-span-2 lg:col-span-3"}>
                 <span className={labelClass}>Trạng thái</span>
                 <select
                   className={selectClass}
@@ -862,13 +931,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   ))}
                 </select>
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row lg:col-span-2 lg:items-end">
-                <button className={primaryButton} type="submit">
+              <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2 lg:flex lg:items-end">
+                <button className={`${primaryButton} w-full`} type="submit">
                   <Search aria-hidden="true" size={18} />
                   Tìm
                 </button>
                 <button
-                  className={secondaryButton}
+                  className={`${secondaryButton} w-full`}
                   onClick={() => setFilters({ name: "", phone: "", date: "", status: "" })}
                   type="button"
                 >
@@ -880,11 +949,20 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
-              <h2 className="text-lg font-bold">Danh sách gửi giữ</h2>
-              <div className="flex flex-wrap justify-end gap-2">
+            <div className="flex flex-col gap-3 border-b border-[#E5E7EB] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div>
+                <h2 className="text-lg font-bold">
+                  {isAdmin ? "Bảng kiểm tra chi tiết" : "Danh sách gửi giữ"}
+                </h2>
+                <p className="text-xs text-[#64748B]">
+                  {isAdmin
+                    ? "Admin xem ngày giờ, nhân viên, trạng thái và lịch sử từng bản ghi."
+                    : "Chạm vào cập nhật để sửa thẻ, bi và trạng thái."}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
                 <button
-                  className={secondaryButton}
+                  className={`${secondaryButton} w-full sm:w-auto`}
                   disabled={exporting || deposits.length === 0}
                   onClick={() => void handleExportExcel()}
                   type="button"
@@ -892,14 +970,132 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   <FileDown aria-hidden="true" size={18} />
                   {exporting ? "Đang xuất" : "Xuất Excel"}
                 </button>
-                <button className={secondaryButton} onClick={() => void loadDeposits()} type="button">
+                <button
+                  className={`${secondaryButton} w-full sm:w-auto`}
+                  onClick={() => void loadDeposits()}
+                  type="button"
+                >
                   <RefreshCw aria-hidden="true" size={18} />
                   {loading ? "Đang tải" : "Tải lại"}
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="divide-y divide-[#E5E7EB] lg:hidden">
+              {deposits.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-[#64748B]">Không có bản ghi.</div>
+              ) : null}
+
+              {deposits.map((deposit) => (
+                <article className="p-4" key={deposit.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base font-bold">{deposit.fullName}</h3>
+                      <a className="mt-1 block text-sm font-semibold text-[#2563EB]" href={`tel:${deposit.phone}`}>
+                        {deposit.phone}
+                      </a>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-md px-3 py-1 text-xs font-semibold ${statusClass(
+                        deposit.status,
+                      )}`}
+                    >
+                      {deposit.status}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    {isAdmin ? (
+                      <>
+                        <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                          <div className="text-xs font-semibold text-[#64748B]">Ngày gửi</div>
+                          <div className="mt-1 font-bold">{formatDate(deposit.depositDate)}</div>
+                        </div>
+                        <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                          <div className="text-xs font-semibold text-[#64748B]">Giờ gửi</div>
+                          <div className="mt-1 font-bold">{deposit.depositTime}</div>
+                        </div>
+                      </>
+                    ) : null}
+                    <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                      <div className="text-xs font-semibold text-[#64748B]">Thẻ</div>
+                      <div className="mt-1 text-xl font-bold">{deposit.cards}</div>
+                    </div>
+                    <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                      <div className="text-xs font-semibold text-[#64748B]">Bi</div>
+                      <div className="mt-1 text-xl font-bold">{deposit.balls}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-md border border-[#E5E7EB] bg-white p-3 text-sm">
+                    <div className="text-xs font-semibold text-[#64748B]">Tổng</div>
+                    <div className="mt-1 font-bold">{deposit.totalText}</div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B]">
+                    <span>Tạo bởi: {actorName(deposit, "created")}</span>
+                    {isAdmin ? <span>Sửa: {actorName(deposit, "updated")}</span> : null}
+                  </div>
+
+                  <div
+                    className={`mt-3 grid gap-2 ${
+                      isAdmin ? "grid-cols-[1fr_48px_48px]" : "grid-cols-1"
+                    }`}
+                  >
+                    <button
+                      className={`${primaryButton} min-h-12 w-full`}
+                      onClick={() => openEdit(deposit)}
+                      type="button"
+                    >
+                      <Save aria-hidden="true" size={18} />
+                      Cập nhật
+                    </button>
+                    {isAdmin ? (
+                      <button
+                        className={`${secondaryButton} min-h-12 px-0`}
+                        aria-label="Lịch sử"
+                        onClick={() =>
+                          setExpandedHistoryId((current) =>
+                            current === deposit.id ? null : deposit.id,
+                          )
+                        }
+                        type="button"
+                      >
+                        <Eye aria-hidden="true" size={18} />
+                      </button>
+                    ) : null}
+                    {isAdmin ? (
+                      <button
+                        className={`${secondaryButton} min-h-12 px-0 text-[#DC2626]`}
+                        aria-label="Xóa"
+                        onClick={() => void handleDeleteDeposit(deposit)}
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" size={18} />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {isAdmin && expandedHistoryId === deposit.id ? (
+                    <div className="mt-3 space-y-2 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                      {deposit.history.length === 0 ? (
+                        <div className="text-sm text-[#64748B]">Chưa có lịch sử cập nhật.</div>
+                      ) : null}
+                      {deposit.history.map((entry) => (
+                        <div className="rounded-md bg-white px-3 py-2" key={entry.id || `${entry.at}-${entry.content}`}>
+                          <div className="text-xs font-semibold text-[#64748B]">
+                            {formatDateTime(entry.at)} · {entry.actorName} · {entry.action}
+                          </div>
+                          <div className="mt-1 text-sm">{entry.content}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[980px] border-collapse text-left text-sm">
                 <thead className="bg-[#F8FAFC] text-xs font-bold uppercase text-[#334155]">
                   <tr>
@@ -1020,8 +1216,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       </div>
 
       {editingDeposit ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/50 px-4 py-6">
-          <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white p-5 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0F172A]/50 px-3 py-0 sm:items-center sm:px-4 sm:py-6">
+          <section className="max-h-[92svh] w-full max-w-2xl overflow-y-auto rounded-t-lg border border-[#E5E7EB] bg-white p-4 shadow-xl sm:rounded-lg sm:p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-bold">Cập nhật gửi giữ</h2>
               <button
@@ -1034,7 +1230,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </button>
             </div>
 
-            <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleUpdateDeposit}>
+            <form className="grid gap-3 sm:grid-cols-2 sm:gap-4" onSubmit={handleUpdateDeposit}>
               {isAdmin ? (
                 <>
                   <label>
@@ -1145,11 +1341,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </select>
               </label>
 
-              <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
-                <button className={secondaryButton} onClick={() => setEditingDeposit(null)} type="button">
+              <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:flex sm:justify-end">
+                <button
+                  className={`${secondaryButton} w-full sm:w-auto`}
+                  onClick={() => setEditingDeposit(null)}
+                  type="button"
+                >
                   Hủy
                 </button>
-                <button className={primaryButton} type="submit">
+                <button className={`${primaryButton} w-full sm:w-auto`} type="submit">
                   <Save aria-hidden="true" size={18} />
                   Lưu cập nhật
                 </button>
