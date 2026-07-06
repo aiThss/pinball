@@ -34,8 +34,8 @@ button:disabled {
 }
 
 ::selection {
-  background: #facc15;
-  color: #111827;
+  background: #E5E7EB;
+  color: #0F172A;
 }
 
 @keyframes phone-suggestion-pop {
