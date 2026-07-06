@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api";
+import { verifyAdmin } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
-import { depositCreateSchema, depositStatuses, normalizePhone } from "@/lib/validation";
+import { depositAdminCreateSchema, depositCreateSchema, depositStatuses, normalizePhone } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 
 const defaultPage = 1;
@@ -121,8 +122,33 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const data = depositCreateSchema.parse(body);
     const now = getHanoiNow();
+    const rawData =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : {};
+    const isAdminCreate =
+      Object.prototype.hasOwnProperty.call(rawData, "depositDate") ||
+      Object.prototype.hasOwnProperty.call(rawData, "depositTime");
+
+    if (isAdminCreate) {
+      const isApproved = await verifyAdmin();
+      if (!isApproved) {
+        return jsonError("Bạn không có quyền chọn ngày giờ khi tạo bản ghi.", 403);
+      }
+    }
+
+    const data = isAdminCreate
+      ? depositAdminCreateSchema.parse(body)
+      : depositCreateSchema.parse(body);
+    let depositDate = now.date;
+    let depositTime = now.time;
+
+    if (isAdminCreate) {
+      const adminData = depositAdminCreateSchema.parse(body);
+      depositDate = adminData.depositDate;
+      depositTime = adminData.depositTime;
+    }
 
     await connectMongo();
 
@@ -145,8 +171,8 @@ export async function POST(request: NextRequest) {
     const deposit = await CustomerDeposit.create({
       fullName: data.fullName,
       phone: data.phone,
-      depositDate: now.date,
-      depositTime: now.time,
+      depositDate,
+      depositTime,
       cards: data.cards,
       balls: data.balls,
       totalText: buildTotalText(nextCards, nextBalls),
@@ -158,7 +184,7 @@ export async function POST(request: NextRequest) {
           at: new Date(),
           actorName: data.actorName,
           action: "CREATE",
-          content: `Tạo bản ghi: thêm ${data.cards} thẻ, ${data.balls} bi. Tổng đang giữ: ${nextCards} thẻ, ${nextBalls} bi.`,
+          content: `Tạo bản ghi: thêm ${data.cards} thẻ, ${data.balls} bi. Ngày giờ gửi: ${depositTime} ${depositDate}. Tổng đang giữ: ${nextCards} thẻ, ${nextBalls} bi.`,
         },
       ],
     });

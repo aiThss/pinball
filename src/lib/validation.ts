@@ -58,6 +58,11 @@ export const depositCreateSchema = z.object({
   balls: nonNegativeIntegerSchema,
 }).strict();
 
+export const depositAdminCreateSchema = depositCreateSchema.extend({
+  depositDate: dateSchema,
+  depositTime: timeSchema,
+}).strict();
+
 export const depositStaffUpdateSchema = z
   .object({
     actorName: actorNameSchema,

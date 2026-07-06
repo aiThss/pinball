@@ -20,7 +20,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { formatDate, getHanoiParts } from "@/lib/time";
+import { formatDate, getHanoiNow, getHanoiParts } from "@/lib/time";
 
 type Mode = "staff" | "admin";
 type Status = "Đang gửi" | "Đã nhận lại" | "Đã đổi quà" | "Đã hủy";
@@ -119,6 +119,19 @@ const emptySummary: DepositSummary = {
 const depositPageLimit = 100;
 const exportPageLimit = 300;
 const minPhoneSuggestionDigits = 3;
+
+function getDefaultDepositForm(includeDateTime = false) {
+  const now = getHanoiNow();
+
+  return {
+    fullName: "",
+    phone: "",
+    cards: "0",
+    balls: "0",
+    depositDate: includeDateTime ? now.date : "",
+    depositTime: includeDateTime ? now.time : "",
+  };
+}
 
 const inputClass =
   "h-12 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[15px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10";
@@ -332,12 +345,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
   const [filters, setFilters] = useState<DepositFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<DepositFilters>(emptyFilters);
-  const [depositForm, setDepositForm] = useState({
-    fullName: "",
-    phone: "",
-    cards: "0",
-    balls: "0",
-  });
+  const [depositForm, setDepositForm] = useState(() => getDefaultDepositForm());
   const [depositLookup, setDepositLookup] = useState<DepositLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [filterLookup, setFilterLookup] = useState<DepositLookup | null>(null);
@@ -372,6 +380,24 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const now = getHanoiNow();
+
+      setDepositForm((current) => ({
+        ...current,
+        depositDate: current.depositDate || now.date,
+        depositTime: current.depositTime || now.time,
+      }));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isAdmin]);
 
   const { activeDeposits, historyEntries, todayDeposits, totalBalls, totalCards } = summary;
   const normalizedDepositPhone = normalizePhoneInput(depositForm.phone);
@@ -641,17 +667,25 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     event.preventDefault();
 
     try {
+      const payload = {
+        fullName: depositForm.fullName,
+        phone: depositForm.phone,
+        actorName: staffName,
+        cards: Number(depositForm.cards),
+        balls: Number(depositForm.balls),
+        ...(isAdmin
+          ? {
+              depositDate: depositForm.depositDate,
+              depositTime: depositForm.depositTime,
+            }
+          : {}),
+      };
       const data = await apiRequest<{ deposit: Deposit }>("/api/deposits", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...depositForm,
-          actorName: staffName,
-          cards: Number(depositForm.cards),
-          balls: Number(depositForm.balls),
-        }),
+        body: JSON.stringify(payload),
       });
 
       setDeposits((current) => {
@@ -663,12 +697,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
         return current.map((deposit) => (deposit.id === data.deposit.id ? data.deposit : deposit));
       });
-      setDepositForm({
-        fullName: "",
-        phone: "",
-        cards: "0",
-        balls: "0",
-      });
+      setDepositForm(getDefaultDepositForm(isAdmin));
       setDepositLookup(null);
       void loadSummary();
       void loadDeposits(appliedFilters, 1);
@@ -1119,12 +1148,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               <div>
                 <h2 className="text-lg font-bold">{isAdmin ? "Tạo bản ghi mới" : "Nhập gửi giữ"}</h2>
                 <p className="text-xs text-[#64748B]">
-                  Ngày và giờ gửi tự đồng bộ theo UTC+7 khi bấm lưu.
+                  {isAdmin
+                    ? "Chọn ngày giờ gửi khi nhập lại dữ liệu cũ."
+                    : "Ngày và giờ gửi tự đồng bộ theo UTC+7 khi bấm lưu."}
                 </p>
               </div>
               {isAdmin ? (
                 <span className="inline-flex w-fit rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-semibold text-[#334155]">
-                  Admin vẫn sửa được ngày/giờ trong chi tiết bản ghi
+                  Admin được tạo bản ghi theo ngày/giờ cũ
                 </span>
               ) : null}
             </div>
@@ -1138,6 +1169,41 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </div>
             </div>
             <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4" onSubmit={handleCreateDeposit}>
+              {isAdmin ? (
+                <div className="grid gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-12">
+                  <label>
+                    <span className={labelClass}>Ngày gửi</span>
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={depositForm.depositDate}
+                      onChange={(event) =>
+                        setDepositForm((current) => ({
+                          ...current,
+                          depositDate: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span className={labelClass}>Giờ gửi</span>
+                    <input
+                      className={inputClass}
+                      type="time"
+                      value={depositForm.depositTime}
+                      onChange={(event) =>
+                        setDepositForm((current) => ({
+                          ...current,
+                          depositTime: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                </div>
+              ) : null}
+
               <label className="sm:col-span-2 lg:col-span-4">
                 <span className={labelClass}>Họ và tên khách</span>
                 <input
