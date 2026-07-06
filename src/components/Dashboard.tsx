@@ -949,40 +949,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               )}
             </div>
             <div className="hidden h-10 w-px bg-[#E5E7EB] sm:block" />
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E5E7EB] text-xs font-semibold sm:h-10 sm:w-10 sm:text-sm">
-                {staffName
-                  .split(" ")
-                  .map((part) => part[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
-              <div className="hidden min-w-0 min-[420px]:block">
-                <div className="text-sm font-bold">{staffName}</div>
-                <div className="text-xs text-[#64748B]">{isAdmin ? "Admin" : "Nhân viên"}</div>
-              </div>
-              {!isAdmin ? (
-                <button
-                  aria-label="Đổi nhân viên"
-                  className={iconButton}
-                  onClick={switchStaff}
-                  type="button"
-                >
-                  <LogOut aria-hidden="true" size={17} />
-                </button>
-              ) : (
-                <button
-                  aria-label="Đăng xuất Admin"
-                  className={iconButton}
-                  onClick={handleAdminLogout}
-                  type="button"
-                  title="Đăng xuất Admin"
-                >
-                  <LogOut aria-hidden="true" size={17} />
-                </button>
-              )}
-            </div>
+            <button
+              aria-label={isAdmin ? "Đăng xuất Admin" : "Đổi nhân viên"}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]"
+              onClick={isAdmin ? handleAdminLogout : switchStaff}
+              title={isAdmin ? "Đăng xuất Admin" : "Đổi nhân viên"}
+              type="button"
+            >
+              <LogOut aria-hidden="true" size={17} />
+            </button>
           </div>
         </div>
       </header>
@@ -1131,6 +1106,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   Admin vẫn sửa được ngày/giờ trong chi tiết bản ghi
                 </span>
               ) : null}
+            </div>
+            <div className="mb-4 flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[#334155] shadow-sm">
+                <UserRound aria-hidden="true" size={18} />
+              </div>
+              <div className="min-w-0 text-sm">
+                <div className="font-semibold text-[#64748B]">Nhân viên</div>
+                <div className="truncate text-base font-bold text-[#0F172A]">{staffName}</div>
+              </div>
             </div>
             <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4" onSubmit={handleCreateDeposit}>
               <label className="sm:col-span-2 lg:col-span-4">
