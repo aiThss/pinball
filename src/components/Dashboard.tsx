@@ -103,6 +103,7 @@ type DepositLookup = {
 const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi quà", "Đã hủy"];
 const staffStorageKey = "pinball_staff_name";
 const appTitle = "Ký gửi PINBALL";
+const adminDisplayName = "Danh Thai";
 const emptyFilters: DepositFilters = {
   name: "",
   phone: "",
@@ -328,7 +329,7 @@ function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
 
 export default function Dashboard({ mode }: { mode: Mode }) {
   const isAdmin = mode === "admin";
-  const [staffName, setStaffName] = useState(isAdmin ? "Admin" : "");
+  const [staffName, setStaffName] = useState(isAdmin ? adminDisplayName : "");
   const [clock, setClock] = useState<ReturnType<typeof getHanoiParts> | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
