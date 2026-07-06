@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
-import { depositAdminUpdateSchema, depositStaffUpdateSchema, depositStatuses } from "@/lib/validation";
+import { ballActions, cardActions, depositAdminUpdateSchema, depositStaffUpdateSchema, depositStatuses } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 import { verifyAdmin } from "@/lib/auth";
 
@@ -22,6 +22,8 @@ const labels: Record<string, string> = {
 };
 const adminOnlyFields = ["fullName", "phone", "depositDate", "depositTime"] as const;
 const activeDepositStatus = depositStatuses[0];
+const withdrawCardAction = cardActions[1];
+const withdrawBallAction = ballActions[1];
 
 function formatChange(label: string, before: unknown, after: unknown) {
   return `${label}: ${before} -> ${after}`;
@@ -41,6 +43,14 @@ function applyChange<T extends keyof ICustomerDeposit>(
   deposit[field] = value;
 }
 
+function getHeldCards(deposit: ICustomerDeposit) {
+  return deposit.cardAction === withdrawCardAction ? 0 : deposit.cards;
+}
+
+function getHeldBalls(deposit: ICustomerDeposit) {
+  return deposit.ballAction === withdrawBallAction ? 0 : deposit.balls;
+}
+
 async function serializeWithActiveTotal(deposit: ICustomerDeposit) {
   if (deposit.status !== activeDepositStatus) {
     return serializeDeposit(deposit);
@@ -54,8 +64,16 @@ async function serializeWithActiveTotal(deposit: ICustomerDeposit) {
     {
       $group: {
         _id: null,
-        totalCards: { $sum: "$cards" },
-        totalBalls: { $sum: "$balls" },
+        totalCards: {
+          $sum: {
+            $cond: [{ $ne: ["$cardAction", withdrawCardAction] }, "$cards", 0],
+          },
+        },
+        totalBalls: {
+          $sum: {
+            $cond: [{ $ne: ["$ballAction", withdrawBallAction] }, "$balls", 0],
+          },
+        },
       },
     },
   ]);
@@ -125,7 +143,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit) });
     }
 
-    deposit.totalText = buildTotalText(deposit.cards, deposit.balls);
+    deposit.totalText = buildTotalText(getHeldCards(deposit), getHeldBalls(deposit));
     deposit.updatedByName = actorName;
     deposit.history.push({
       at: new Date(),

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeRegex, jsonError, parseError } from "@/lib/api";
 import { connectMongo } from "@/lib/mongodb";
-import { depositStatuses, normalizePhone } from "@/lib/validation";
+import { ballActions, cardActions, depositStatuses, normalizePhone } from "@/lib/validation";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
 
 const minSuggestionDigits = 3;
 const suggestionLimit = 6;
+const withdrawCardAction = cardActions[1];
+const withdrawBallAction = ballActions[1];
 
 type PhoneSuggestion = {
   phone: string;
@@ -48,10 +50,32 @@ export async function GET(request: NextRequest) {
             $sum: { $cond: [{ $eq: ["$status", depositStatuses[0]] }, 1, 0] },
           },
           totalCards: {
-            $sum: { $cond: [{ $eq: ["$status", depositStatuses[0]] }, "$cards", 0] },
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$status", depositStatuses[0]] },
+                    { $ne: ["$cardAction", withdrawCardAction] },
+                  ],
+                },
+                "$cards",
+                0,
+              ],
+            },
           },
           totalBalls: {
-            $sum: { $cond: [{ $eq: ["$status", depositStatuses[0]] }, "$balls", 0] },
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$status", depositStatuses[0]] },
+                    { $ne: ["$ballAction", withdrawBallAction] },
+                  ],
+                },
+                "$balls",
+                0,
+              ],
+            },
           },
           latestStatus: { $first: "$status" },
           latestDepositDate: { $first: "$depositDate" },

@@ -25,6 +25,7 @@ import { formatDate, getHanoiNow, getHanoiParts } from "@/lib/time";
 type Mode = "staff" | "admin";
 type Status = "Đang gửi" | "Đã nhận lại" | "Đã đổi quà" | "Đã hủy";
 type CardAction = "Gửi thẻ" | "Lấy thẻ";
+type BallAction = "Gửi bi" | "Lấy bi";
 
 type HistoryEntry = {
   id: string;
@@ -41,6 +42,7 @@ type Deposit = {
   depositDate: string;
   depositTime: string;
   cardAction: CardAction;
+  ballAction: BallAction;
   cards: number;
   balls: number;
   totalText: string;
@@ -104,6 +106,7 @@ type DepositLookup = {
 
 const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi quà", "Đã hủy"];
 const cardActions: CardAction[] = ["Gửi thẻ", "Lấy thẻ"];
+const ballActions: BallAction[] = ["Gửi bi", "Lấy bi"];
 const staffStorageKey = "pinball_staff_name";
 const appTitle = "Ký gửi PINBALL";
 const adminDisplayName = "Danh Thai";
@@ -131,6 +134,7 @@ function getDefaultDepositForm(includeDateTime = false) {
     fullName: "",
     phone: "",
     cardAction: "Gửi thẻ" as CardAction,
+    ballAction: "Gửi bi" as BallAction,
     cards: "0",
     balls: "0",
     depositDate: includeDateTime ? now.date : "",
@@ -185,6 +189,12 @@ function cardActionClass(cardAction: CardAction) {
   return cardAction === "Lấy thẻ"
     ? "bg-[#FEE2E2] text-[#B91C1C]"
     : "bg-[#DCFCE7] text-[#166534]";
+}
+
+function ballActionClass(ballAction: BallAction) {
+  return ballAction === "Lấy bi"
+    ? "bg-[#FEF3C7] text-[#B45309]"
+    : "bg-[#E0F2FE] text-[#0369A1]";
 }
 
 function actorName(deposit: Deposit, field: "created" | "updated") {
@@ -439,9 +449,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         depositForm.cardAction === "Lấy thẻ"
           ? activeDepositLookup.totalCards - cardAmount
           : activeDepositLookup.totalCards + cardAmount,
-      balls: activeDepositLookup.totalBalls + (depositForm.cardAction === "Lấy thẻ" ? 0 : ballAmount),
+      balls:
+        depositForm.ballAction === "Lấy bi"
+          ? activeDepositLookup.totalBalls - ballAmount
+          : activeDepositLookup.totalBalls + ballAmount,
     };
-  }, [activeDepositLookup, depositForm.balls, depositForm.cardAction, depositForm.cards]);
+  }, [activeDepositLookup, depositForm.ballAction, depositForm.balls, depositForm.cardAction, depositForm.cards]);
 
   const showNotice = useCallback((type: Notice["type"], text: string) => {
     setNotice({ type, text });
@@ -689,6 +702,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         phone: depositForm.phone,
         actorName: staffName,
         cardAction: depositForm.cardAction,
+        ballAction: depositForm.ballAction,
         cards: Number(depositForm.cards),
         balls: Number(depositForm.balls),
         ...(isAdmin
@@ -865,6 +879,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         deposit.balls,
         deposit.totalText,
         deposit.cardAction,
+        deposit.ballAction,
         deposit.status,
         actorName(deposit, "created"),
         actorName(deposit, "updated"),
@@ -884,7 +899,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           header("Thẻ"),
           header("Bi"),
           header("Tổng"),
-          header("Tùy chọn"),
+          header("Tùy chọn thẻ"),
+          header("Tùy chọn bi"),
           header("Trạng thái"),
           header("Nhân viên tạo"),
           header("Nhân viên sửa"),
@@ -906,6 +922,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             { width: 10 },
             { width: 10 },
             { width: 32 },
+            { width: 14 },
             { width: 14 },
             { width: 16 },
             { width: 18 },
@@ -1270,7 +1287,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 ) : activeDepositLookup?.found && pendingDepositTotals ? (
                   <span
                     className={`mt-2 block text-xs font-semibold leading-5 ${
-                      pendingDepositTotals.cards < 0 ? "text-[#DC2626]" : "text-[#2563EB]"
+                      pendingDepositTotals.cards < 0 || pendingDepositTotals.balls < 0
+                        ? "text-[#DC2626]"
+                        : "text-[#2563EB]"
                     }`}
                   >
                     Hiện có: {activeDepositLookup.totalCards} thẻ, {activeDepositLookup.totalBalls} bi - Sau lưu:{" "}
@@ -1303,10 +1322,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </label>
 
                 <label className="lg:col-span-2">
-                  <span className={labelClass}>Bi</span>
+                  <span className={labelClass}>
+                    {depositForm.ballAction === "Lấy bi" ? "Bi lấy" : "Bi gửi"}
+                  </span>
                   <input
-                    className={`${inputClass} disabled:bg-[#F1F5F9] disabled:text-[#94A3B8]`}
-                    disabled={depositForm.cardAction === "Lấy thẻ"}
+                    className={inputClass}
                     min="0"
                     type="number"
                     value={depositForm.balls}
@@ -1323,7 +1343,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
               <div className="grid gap-3 sm:col-span-2 lg:col-span-2">
                 <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2">
-                  <div className="mb-2 text-xs font-semibold text-[#64748B]">Tùy chọn</div>
+                  <div className="mb-2 text-xs font-semibold text-[#64748B]">Tùy chọn thẻ</div>
                   <div className="grid grid-cols-2 gap-1">
                     {cardActions.map((cardAction) => {
                       const isSelected = depositForm.cardAction === cardAction;
@@ -1341,7 +1361,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                             setDepositForm((current) => ({
                               ...current,
                               cardAction,
-                              balls: cardAction === "Lấy thẻ" ? "0" : current.balls,
                             }))
                           }
                           type="button"
@@ -1352,6 +1371,41 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                             <RefreshCw aria-hidden="true" size={15} />
                           )}
                           {cardAction}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2">
+                  <div className="mb-2 text-xs font-semibold text-[#64748B]">Tùy chọn bi</div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {ballActions.map((ballAction) => {
+                      const isSelected = depositForm.ballAction === ballAction;
+
+                      return (
+                        <button
+                          aria-pressed={isSelected}
+                          className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded px-2 text-xs font-bold transition ${
+                            isSelected
+                              ? ballActionClass(ballAction)
+                              : "bg-white text-[#334155] hover:bg-[#F8FAFC]"
+                          }`}
+                          key={ballAction}
+                          onClick={() =>
+                            setDepositForm((current) => ({
+                              ...current,
+                              ballAction,
+                            }))
+                          }
+                          type="button"
+                        >
+                          {ballAction === "Gửi bi" ? (
+                            <Coins aria-hidden="true" size={15} />
+                          ) : (
+                            <RefreshCw aria-hidden="true" size={15} />
+                          )}
+                          {ballAction}
                         </button>
                       );
                     })}
@@ -1515,6 +1569,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                       >
                         {deposit.cardAction}
                       </span>
+                      <span
+                        className={`rounded-md px-3 py-1 text-xs font-semibold ${ballActionClass(
+                          deposit.ballAction,
+                        )}`}
+                      >
+                        {deposit.ballAction}
+                      </span>
                     </div>
                   </div>
 
@@ -1612,7 +1673,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             </div>
 
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
+              <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
                 <thead className="bg-[#F8FAFC] text-xs font-bold uppercase text-[#334155]">
                   <tr>
                     <th className="px-5 py-3">Họ và tên</th>
@@ -1622,7 +1683,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     <th className="px-5 py-3 text-right">Thẻ</th>
                     <th className="px-5 py-3 text-right">Bi</th>
                     <th className="px-5 py-3">Tổng</th>
-                    <th className="px-5 py-3">Tùy chọn</th>
+                    <th className="px-5 py-3">Tùy chọn thẻ</th>
+                    <th className="px-5 py-3">Tùy chọn bi</th>
                     <th className="px-5 py-3">Trạng thái</th>
                     <th className="px-5 py-3">Nhân viên</th>
                     <th className="px-5 py-3">Thao tác</th>
@@ -1633,7 +1695,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     <tr>
                       <td
                         className="px-5 py-8 text-center text-[#64748B]"
-                        colSpan={isAdmin ? 11 : 9}
+                        colSpan={isAdmin ? 12 : 10}
                       >
                         Không có bản ghi.
                       </td>
@@ -1657,6 +1719,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                             )}`}
                           >
                             {deposit.cardAction}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-md px-3 py-1 text-xs font-semibold ${ballActionClass(
+                              deposit.ballAction,
+                            )}`}
+                          >
+                            {deposit.ballAction}
                           </span>
                         </td>
                         <td className="px-5 py-4">

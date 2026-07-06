@@ -1,5 +1,5 @@
 import { model, models, Schema, type Document, type Model, type Types } from "mongoose";
-import { cardActions, depositStatuses } from "@/lib/validation";
+import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
 
 export interface IHistoryEntry {
   at: Date;
@@ -16,6 +16,7 @@ export interface ICustomerDeposit extends Document {
   depositDate: string;
   depositTime: string;
   cardAction: (typeof cardActions)[number];
+  ballAction: (typeof ballActions)[number];
   cards: number;
   balls: number;
   totalText: string;
@@ -84,6 +85,13 @@ const CustomerDepositSchema = new Schema<ICustomerDeposit>(
       type: String,
       enum: cardActions,
       default: cardActions[0],
+      required: true,
+      index: true,
+    },
+    ballAction: {
+      type: String,
+      enum: ballActions,
+      default: ballActions[0],
       required: true,
       index: true,
     },

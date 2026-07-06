@@ -8,6 +8,7 @@ export const depositStatuses = [
 ] as const;
 
 export const cardActions = ["Gửi thẻ", "Lấy thẻ"] as const;
+export const ballActions = ["Gửi bi", "Lấy bi"] as const;
 
 const dateSchema = z
   .string()
@@ -57,6 +58,7 @@ export const depositCreateSchema = z.object({
   phone: phoneSchema,
   actorName: actorNameSchema,
   cardAction: z.enum(cardActions).default(cardActions[0]),
+  ballAction: z.enum(ballActions).default(ballActions[0]),
   cards: nonNegativeIntegerSchema,
   balls: nonNegativeIntegerSchema,
 }).strict();

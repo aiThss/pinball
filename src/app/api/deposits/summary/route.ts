@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { jsonError, parseError } from "@/lib/api";
 import { connectMongo } from "@/lib/mongodb";
 import { getHanoiNow } from "@/lib/time";
-import { depositStatuses } from "@/lib/validation";
+import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
+
+const withdrawCardAction = cardActions[1];
+const withdrawBallAction = ballActions[1];
 
 export async function GET() {
   try {
@@ -21,8 +24,16 @@ export async function GET() {
           $group: {
             _id: null,
             activeDeposits: { $sum: 1 },
-            totalCards: { $sum: "$cards" },
-            totalBalls: { $sum: "$balls" },
+            totalCards: {
+              $sum: {
+                $cond: [{ $ne: ["$cardAction", withdrawCardAction] }, "$cards", 0],
+              },
+            },
+            totalBalls: {
+              $sum: {
+                $cond: [{ $ne: ["$ballAction", withdrawBallAction] }, "$balls", 0],
+              },
+            },
           },
         },
       ]),
