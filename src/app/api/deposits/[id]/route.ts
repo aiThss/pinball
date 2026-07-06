@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
-import { depositAdminUpdateSchema, depositStaffUpdateSchema } from "@/lib/validation";
+import { depositAdminUpdateSchema, depositStaffUpdateSchema, depositStatuses } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 import { verifyAdmin } from "@/lib/auth";
 
@@ -21,6 +21,7 @@ const labels: Record<string, string> = {
   status: "Trạng thái",
 };
 const adminOnlyFields = ["fullName", "phone", "depositDate", "depositTime"] as const;
+const activeDepositStatus = depositStatuses[0];
 
 function formatChange(label: string, before: unknown, after: unknown) {
   return `${label}: ${before} -> ${after}`;
@@ -38,6 +39,30 @@ function applyChange<T extends keyof ICustomerDeposit>(
 
   changes.push(formatChange(labels[String(field)] ?? String(field), deposit[field], value));
   deposit[field] = value;
+}
+
+async function serializeWithActiveTotal(deposit: ICustomerDeposit) {
+  if (deposit.status !== activeDepositStatus) {
+    return serializeDeposit(deposit);
+  }
+
+  const [activeTotal] = await CustomerDeposit.aggregate<{
+    totalCards: number;
+    totalBalls: number;
+  }>([
+    { $match: { phone: deposit.phone, status: activeDepositStatus } },
+    {
+      $group: {
+        _id: null,
+        totalCards: { $sum: "$cards" },
+        totalBalls: { $sum: "$balls" },
+      },
+    },
+  ]);
+
+  return serializeDeposit(deposit, {
+    totalText: buildTotalText(activeTotal?.totalCards ?? deposit.cards, activeTotal?.totalBalls ?? deposit.balls),
+  });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -97,7 +122,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (changes.length === 0) {
-      return NextResponse.json({ deposit: serializeDeposit(deposit) });
+      return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit) });
     }
 
     deposit.totalText = buildTotalText(deposit.cards, deposit.balls);
@@ -111,7 +136,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     await deposit.save();
 
-    return NextResponse.json({ deposit: serializeDeposit(deposit) });
+    return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit) });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }

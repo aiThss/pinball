@@ -23,7 +23,7 @@ export function escapeRegex(value: string) {
 
 export function serializeDeposit(deposit: {
   toObject: () => Record<string, unknown>;
-}) {
+}, overrides: Partial<{ totalText: string }> = {}) {
   const value = deposit.toObject();
   const history = Array.isArray(value.history) ? value.history : [];
 
@@ -35,7 +35,7 @@ export function serializeDeposit(deposit: {
     depositTime: value.depositTime,
     cards: value.cards,
     balls: value.balls,
-    totalText: value.totalText,
+    totalText: overrides.totalText ?? value.totalText,
     status: value.status,
     createdByName: value.createdByName,
     updatedByName: value.updatedByName,

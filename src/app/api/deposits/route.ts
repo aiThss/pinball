@@ -3,13 +3,12 @@ import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api"
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
 import { depositCreateSchema, depositStatuses, normalizePhone } from "@/lib/validation";
-import { CustomerDeposit } from "@/models/CustomerDeposit";
+import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 
 const defaultPage = 1;
 const defaultLimit = 100;
 const maxLimit = 300;
 const activeDepositStatus = depositStatuses[0];
-const canceledDepositStatus = depositStatuses[3];
 
 function parsePositiveInteger(value: string | null, fallback: number) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -19,6 +18,56 @@ function parsePositiveInteger(value: string | null, fallback: number) {
   }
 
   return parsed;
+}
+
+type PhoneTotal = {
+  _id: string;
+  totalCards: number;
+  totalBalls: number;
+};
+
+async function getActiveTotalsByPhone(phones: string[]) {
+  const uniquePhones = [...new Set(phones.filter(Boolean))];
+
+  if (uniquePhones.length === 0) {
+    return new Map<string, { cards: number; balls: number }>();
+  }
+
+  const totals = await CustomerDeposit.aggregate<PhoneTotal>([
+    { $match: { phone: { $in: uniquePhones }, status: activeDepositStatus } },
+    {
+      $group: {
+        _id: "$phone",
+        totalCards: { $sum: "$cards" },
+        totalBalls: { $sum: "$balls" },
+      },
+    },
+  ]);
+
+  return new Map(
+    totals.map((total) => [
+      total._id,
+      {
+        cards: total.totalCards,
+        balls: total.totalBalls,
+      },
+    ]),
+  );
+}
+
+function serializeWithActiveTotal(
+  deposit: ICustomerDeposit,
+  totalsByPhone: Map<string, { cards: number; balls: number }>,
+) {
+  const total = totalsByPhone.get(deposit.phone);
+
+  if (deposit.status !== activeDepositStatus || !total) {
+    return serializeDeposit(deposit);
+  }
+
+  return serializeDeposit(deposit, {
+    totalText: buildTotalText(total.cards, total.balls),
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -55,9 +104,10 @@ export async function GET(request: NextRequest) {
       CustomerDeposit.countDocuments(filter),
       CustomerDeposit.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
     ]);
+    const totalsByPhone = await getActiveTotalsByPhone(deposits.map((deposit) => deposit.phone));
 
     return NextResponse.json({
-      deposits: deposits.map(serializeDeposit),
+      deposits: deposits.map((deposit) => serializeWithActiveTotal(deposit, totalsByPhone)),
       total,
       page,
       limit,
@@ -76,53 +126,21 @@ export async function POST(request: NextRequest) {
 
     await connectMongo();
 
-    const matchingDeposits = await CustomerDeposit.find({
-      phone: data.phone,
-      status: activeDepositStatus,
-    }).sort({ createdAt: 1 });
-    const [depositToUpdate, ...duplicateDeposits] = matchingDeposits;
-
-    if (depositToUpdate) {
-      const existingCards = matchingDeposits.reduce((sum, deposit) => sum + deposit.cards, 0);
-      const existingBalls = matchingDeposits.reduce((sum, deposit) => sum + deposit.balls, 0);
-      const nextCards = existingCards + data.cards;
-      const nextBalls = existingBalls + data.balls;
-
-      depositToUpdate.cards = nextCards;
-      depositToUpdate.balls = nextBalls;
-      depositToUpdate.totalText = buildTotalText(nextCards, nextBalls);
-      depositToUpdate.updatedByName = data.actorName;
-      depositToUpdate.history.push({
-        at: new Date(),
-        actorName: data.actorName,
-        action: "UPDATE",
-        content: `Cộng thêm theo SĐT ${data.phone}: ${data.cards} thẻ, ${data.balls} bi. Tổng mới: ${nextCards} thẻ, ${nextBalls} bi.${
-          duplicateDeposits.length > 0 ? ` Đã gộp ${duplicateDeposits.length} bản ghi trùng SĐT.` : ""
-        }`,
-      });
-
-      duplicateDeposits.forEach((duplicate) => {
-        duplicate.status = canceledDepositStatus;
-        duplicate.updatedByName = data.actorName;
-        duplicate.history.push({
-          at: new Date(),
-          actorName: data.actorName,
-          action: "UPDATE",
-          content: `Gộp vào bản ghi ${depositToUpdate._id} vì trùng SĐT ${data.phone}.`,
-        });
-      });
-
-      await Promise.all([
-        depositToUpdate.save(),
-        ...duplicateDeposits.map((deposit) => deposit.save()),
-      ]);
-
-      return NextResponse.json({
-        deposit: serializeDeposit(depositToUpdate),
-        merged: true,
-        mergedCount: matchingDeposits.length,
-      });
-    }
+    const [activeTotal] = await CustomerDeposit.aggregate<{
+      totalCards: number;
+      totalBalls: number;
+    }>([
+      { $match: { phone: data.phone, status: activeDepositStatus } },
+      {
+        $group: {
+          _id: null,
+          totalCards: { $sum: "$cards" },
+          totalBalls: { $sum: "$balls" },
+        },
+      },
+    ]);
+    const nextCards = (activeTotal?.totalCards ?? 0) + data.cards;
+    const nextBalls = (activeTotal?.totalBalls ?? 0) + data.balls;
 
     const deposit = await CustomerDeposit.create({
       fullName: data.fullName,
@@ -131,7 +149,7 @@ export async function POST(request: NextRequest) {
       depositTime: now.time,
       cards: data.cards,
       balls: data.balls,
-      totalText: buildTotalText(data.cards, data.balls),
+      totalText: buildTotalText(nextCards, nextBalls),
       status: activeDepositStatus,
       createdByName: data.actorName,
       updatedByName: data.actorName,
@@ -140,7 +158,7 @@ export async function POST(request: NextRequest) {
           at: new Date(),
           actorName: data.actorName,
           action: "CREATE",
-          content: `Tạo bản ghi: ${data.cards} thẻ, ${data.balls} bi.`,
+          content: `Tạo bản ghi: thêm ${data.cards} thẻ, ${data.balls} bi. Tổng đang giữ: ${nextCards} thẻ, ${nextBalls} bi.`,
         },
       ],
     });

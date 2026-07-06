@@ -171,6 +171,25 @@ function actorName(deposit: Deposit, field: "created" | "updated") {
   return deposit.updatedByName || deposit.updatedBy?.displayName || "N/A";
 }
 
+function formatShortDateTime(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const parts = new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${byType.hour}h${byType.minute} ${byType.day}/${byType.month}/${byType.year}`;
+}
+
 function normalizePhoneInput(phone: string) {
   return phone.trim().replace(/[\s().-]/g, "");
 }
@@ -622,7 +641,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     event.preventDefault();
 
     try {
-      const data = await apiRequest<{ deposit: Deposit; merged?: boolean }>("/api/deposits", {
+      const data = await apiRequest<{ deposit: Deposit }>("/api/deposits", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -653,7 +672,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       setDepositLookup(null);
       void loadSummary();
       void loadDeposits(appliedFilters, 1);
-      showNotice("success", data.merged ? "Đã cộng vào SĐT đang gửi." : "Đã lưu bản ghi gửi giữ.");
+      showNotice("success", "Đã lưu chi tiết lần gửi mới.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không lưu được bản ghi.");
     }
@@ -710,6 +729,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       );
       setEditingDeposit(null);
       void loadSummary();
+      void loadDeposits(appliedFilters, 1);
       showNotice("success", "Đã cập nhật bản ghi.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không cập nhật được.");
@@ -729,6 +749,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       });
       setDeposits((current) => current.filter((item) => item.id !== deposit.id));
       void loadSummary();
+      void loadDeposits(appliedFilters, 1);
       showNotice("success", "Đã xóa bản ghi.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không xóa được.");
@@ -1387,7 +1408,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B]">
-                    <span>Tạo bởi: {actorName(deposit, "created")}</span>
+                    <span>
+                      Tạo bởi: {actorName(deposit, "created")} lúc {formatShortDateTime(deposit.createdAt)}
+                    </span>
                     {isAdmin ? <span>Sửa: {actorName(deposit, "updated")}</span> : null}
                   </div>
 
@@ -1498,6 +1521,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                         </td>
                         <td className="px-5 py-4">
                           <div>{actorName(deposit, "created")}</div>
+                          <div className="text-xs text-[#64748B]">
+                            Lúc {formatShortDateTime(deposit.createdAt)}
+                          </div>
                           {isAdmin ? (
                             <div className="text-xs text-[#64748B]">
                               Sửa: {actorName(deposit, "updated")}
