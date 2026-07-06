@@ -3,13 +3,16 @@ import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api"
 import { verifyAdmin } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
-import { depositAdminCreateSchema, depositCreateSchema, depositStatuses, normalizePhone } from "@/lib/validation";
+import { cardActions, depositAdminCreateSchema, depositCreateSchema, depositStatuses, normalizePhone } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 
 const defaultPage = 1;
 const defaultLimit = 100;
 const maxLimit = 300;
 const activeDepositStatus = depositStatuses[0];
+const returnedDepositStatus = depositStatuses[1];
+const depositCardAction = cardActions[0];
+const withdrawCardAction = cardActions[1];
 
 function parsePositiveInteger(value: string | null, fallback: number) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -23,6 +26,11 @@ function parsePositiveInteger(value: string | null, fallback: number) {
 
 type PhoneTotal = {
   _id: string;
+  totalCards: number;
+  totalBalls: number;
+};
+
+type ActiveTotal = {
   totalCards: number;
   totalBalls: number;
 };
@@ -69,6 +77,62 @@ function serializeWithActiveTotal(
   return serializeDeposit(deposit, {
     totalText: buildTotalText(total.cards, total.balls),
   });
+}
+
+async function getActiveTotalByPhone(phone: string) {
+  const [activeTotal] = await CustomerDeposit.aggregate<ActiveTotal>([
+    { $match: { phone, status: activeDepositStatus } },
+    {
+      $group: {
+        _id: null,
+        totalCards: { $sum: "$cards" },
+        totalBalls: { $sum: "$balls" },
+      },
+    },
+  ]);
+
+  return {
+    cards: activeTotal?.totalCards ?? 0,
+    balls: activeTotal?.totalBalls ?? 0,
+  };
+}
+
+async function deductActiveCards(phone: string, cardsToTake: number, actorName: string) {
+  let remainingCards = cardsToTake;
+  const activeDeposits = await CustomerDeposit.find({
+    phone,
+    status: activeDepositStatus,
+    cards: { $gt: 0 },
+  }).sort({ createdAt: 1 });
+
+  for (const activeDeposit of activeDeposits) {
+    if (remainingCards <= 0) {
+      break;
+    }
+
+    const deductedCards = Math.min(activeDeposit.cards, remainingCards);
+    activeDeposit.cards -= deductedCards;
+    remainingCards -= deductedCards;
+
+    if (activeDeposit.cards === 0 && activeDeposit.balls === 0) {
+      activeDeposit.status = returnedDepositStatus;
+    }
+
+    activeDeposit.totalText = buildTotalText(activeDeposit.cards, activeDeposit.balls);
+    activeDeposit.updatedByName = actorName;
+    activeDeposit.history.push({
+      at: new Date(),
+      actorName,
+      action: "UPDATE",
+      content: `Tự trừ ${deductedCards} thẻ do tạo bản ghi lấy thẻ. Thẻ còn lại: ${activeDeposit.cards}.`,
+    });
+
+    await activeDeposit.save();
+  }
+
+  if (remainingCards > 0) {
+    throw new Error("Không đủ thẻ đang giữ để trừ.");
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -152,31 +216,38 @@ export async function POST(request: NextRequest) {
 
     await connectMongo();
 
-    const [activeTotal] = await CustomerDeposit.aggregate<{
-      totalCards: number;
-      totalBalls: number;
-    }>([
-      { $match: { phone: data.phone, status: activeDepositStatus } },
-      {
-        $group: {
-          _id: null,
-          totalCards: { $sum: "$cards" },
-          totalBalls: { $sum: "$balls" },
-        },
-      },
-    ]);
-    const nextCards = (activeTotal?.totalCards ?? 0) + data.cards;
-    const nextBalls = (activeTotal?.totalBalls ?? 0) + data.balls;
+    const activeTotal = await getActiveTotalByPhone(data.phone);
+    const isTakingCards = data.cardAction === withdrawCardAction;
+
+    if (isTakingCards && data.cards === 0) {
+      return jsonError("Vui lòng nhập số thẻ cần lấy.", 400);
+    }
+
+    if (isTakingCards && data.balls > 0) {
+      return jsonError("Tùy chọn Lấy thẻ chỉ áp dụng cho thẻ. Vui lòng để bi bằng 0.", 400);
+    }
+
+    if (isTakingCards && data.cards > activeTotal.cards) {
+      return jsonError(`Khách chỉ còn ${activeTotal.cards} thẻ đang giữ.`, 400);
+    }
+
+    const nextCards = isTakingCards ? activeTotal.cards - data.cards : activeTotal.cards + data.cards;
+    const nextBalls = activeTotal.balls + (isTakingCards ? 0 : data.balls);
+    const status = isTakingCards ? returnedDepositStatus : activeDepositStatus;
+    const historyContent = isTakingCards
+      ? `Tạo bản ghi: lấy ${data.cards} thẻ. Ngày giờ lấy: ${depositTime} ${depositDate}. Tổng đang giữ: ${nextCards} thẻ, ${nextBalls} bi.`
+      : `Tạo bản ghi: thêm ${data.cards} thẻ, ${data.balls} bi. Ngày giờ gửi: ${depositTime} ${depositDate}. Tổng đang giữ: ${nextCards} thẻ, ${nextBalls} bi.`;
 
     const deposit = await CustomerDeposit.create({
       fullName: data.fullName,
       phone: data.phone,
       depositDate,
       depositTime,
+      cardAction: data.cardAction ?? depositCardAction,
       cards: data.cards,
       balls: data.balls,
       totalText: buildTotalText(nextCards, nextBalls),
-      status: activeDepositStatus,
+      status,
       createdByName: data.actorName,
       updatedByName: data.actorName,
       history: [
@@ -184,10 +255,14 @@ export async function POST(request: NextRequest) {
           at: new Date(),
           actorName: data.actorName,
           action: "CREATE",
-          content: `Tạo bản ghi: thêm ${data.cards} thẻ, ${data.balls} bi. Ngày giờ gửi: ${depositTime} ${depositDate}. Tổng đang giữ: ${nextCards} thẻ, ${nextBalls} bi.`,
+          content: historyContent,
         },
       ],
     });
+
+    if (isTakingCards) {
+      await deductActiveCards(data.phone, data.cards, data.actorName);
+    }
 
     return NextResponse.json({ deposit: serializeDeposit(deposit) }, { status: 201 });
   } catch (error) {

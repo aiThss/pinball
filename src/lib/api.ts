@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { cardActions } from "@/lib/validation";
 
 export function jsonError(message: string, status = 400) {
   return NextResponse.json({ message }, { status });
@@ -33,6 +34,7 @@ export function serializeDeposit(deposit: {
     phone: value.phone,
     depositDate: value.depositDate,
     depositTime: value.depositTime,
+    cardAction: value.cardAction ?? cardActions[0],
     cards: value.cards,
     balls: value.balls,
     totalText: overrides.totalText ?? value.totalText,

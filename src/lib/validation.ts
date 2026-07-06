@@ -7,6 +7,8 @@ export const depositStatuses = [
   "Đã hủy",
 ] as const;
 
+export const cardActions = ["Gửi thẻ", "Lấy thẻ"] as const;
+
 const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày gửi phải theo định dạng YYYY-MM-DD.");
@@ -54,6 +56,7 @@ export const depositCreateSchema = z.object({
   fullName: z.string().trim().min(2, "Vui lòng nhập họ tên khách."),
   phone: phoneSchema,
   actorName: actorNameSchema,
+  cardAction: z.enum(cardActions).default(cardActions[0]),
   cards: nonNegativeIntegerSchema,
   balls: nonNegativeIntegerSchema,
 }).strict();
