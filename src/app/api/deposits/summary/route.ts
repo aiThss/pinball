@@ -1,33 +1,50 @@
 import { NextResponse } from "next/server";
 import { jsonError, parseError } from "@/lib/api";
 import { connectMongo } from "@/lib/mongodb";
+import { getHanoiNow } from "@/lib/time";
 import { depositStatuses } from "@/lib/validation";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
 
 export async function GET() {
   try {
     await connectMongo();
+    const today = getHanoiNow().date;
 
-    const [summary] = await CustomerDeposit.aggregate<{
-      activeDeposits: number;
-      totalCards: number;
-      totalBalls: number;
-    }>([
-      { $match: { status: depositStatuses[0] } },
-      {
-        $group: {
-          _id: null,
-          activeDeposits: { $sum: 1 },
-          totalCards: { $sum: "$cards" },
-          totalBalls: { $sum: "$balls" },
+    const [activeSummaries, todayDeposits, historySummaries] = await Promise.all([
+      CustomerDeposit.aggregate<{
+        activeDeposits: number;
+        totalCards: number;
+        totalBalls: number;
+      }>([
+        { $match: { status: depositStatuses[0] } },
+        {
+          $group: {
+            _id: null,
+            activeDeposits: { $sum: 1 },
+            totalCards: { $sum: "$cards" },
+            totalBalls: { $sum: "$balls" },
+          },
         },
-      },
+      ]),
+      CustomerDeposit.countDocuments({ depositDate: today }),
+      CustomerDeposit.aggregate<{ historyEntries: number }>([
+        {
+          $group: {
+            _id: null,
+            historyEntries: { $sum: { $size: { $ifNull: ["$history", []] } } },
+          },
+        },
+      ]),
     ]);
+    const activeSummary = activeSummaries[0];
+    const historySummary = historySummaries[0];
 
     return NextResponse.json({
-      activeDeposits: summary?.activeDeposits ?? 0,
-      totalCards: summary?.totalCards ?? 0,
-      totalBalls: summary?.totalBalls ?? 0,
+      activeDeposits: activeSummary?.activeDeposits ?? 0,
+      totalCards: activeSummary?.totalCards ?? 0,
+      totalBalls: activeSummary?.totalBalls ?? 0,
+      todayDeposits,
+      historyEntries: historySummary?.historyEntries ?? 0,
     });
   } catch (error) {
     return jsonError(parseError(error), 500);

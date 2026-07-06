@@ -54,14 +54,23 @@ export const depositCreateSchema = z.object({
   fullName: z.string().trim().min(2, "Vui lòng nhập họ tên khách."),
   phone: phoneSchema,
   actorName: actorNameSchema,
-  depositDate: optionalDateSchema,
-  depositTime: optionalTimeSchema,
   cards: nonNegativeIntegerSchema,
   balls: nonNegativeIntegerSchema,
-  status: z.enum(depositStatuses).optional(),
-});
+}).strict();
 
-export const depositUpdateSchema = z
+export const depositStaffUpdateSchema = z
+  .object({
+    actorName: actorNameSchema,
+    cards: nonNegativeIntegerSchema.optional(),
+    balls: nonNegativeIntegerSchema.optional(),
+    status: z.enum(depositStatuses).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).some((key) => key !== "actorName"), {
+    message: "Không có dữ liệu cập nhật.",
+  });
+
+export const depositAdminUpdateSchema = z
   .object({
     fullName: z.string().trim().min(2).optional(),
     phone: phoneSchema.optional(),
@@ -72,6 +81,7 @@ export const depositUpdateSchema = z
     balls: nonNegativeIntegerSchema.optional(),
     status: z.enum(depositStatuses).optional(),
   })
+  .strict()
   .refine((value) => Object.keys(value).some((key) => key !== "actorName"), {
     message: "Không có dữ liệu cập nhật.",
   });

@@ -76,6 +76,18 @@ type DepositSummary = {
   activeDeposits: number;
   totalCards: number;
   totalBalls: number;
+  todayDeposits: number;
+  historyEntries: number;
+};
+
+type DepositSuggestion = {
+  phone: string;
+  fullName: string;
+  activeDeposits: number;
+  totalCards: number;
+  totalBalls: number;
+  latestStatus: Status;
+  latestDepositDate: string;
 };
 
 type DepositLookup = {
@@ -85,6 +97,7 @@ type DepositLookup = {
   activeDeposits: number;
   totalCards: number;
   totalBalls: number;
+  suggestions: DepositSuggestion[];
 };
 
 const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi quà", "Đã hủy"];
@@ -100,8 +113,12 @@ const emptySummary: DepositSummary = {
   activeDeposits: 0,
   totalCards: 0,
   totalBalls: 0,
+  todayDeposits: 0,
+  historyEntries: 0,
 };
 const depositPageLimit = 100;
+const exportPageLimit = 300;
+const minPhoneSuggestionDigits = 3;
 
 const inputClass =
   "h-12 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[15px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10";
@@ -167,6 +184,65 @@ async function apiRequest<T>(url: string, init?: RequestInit) {
   }
 
   return data as T;
+}
+
+function PhoneSuggestionBubble({
+  suggestions,
+  onSelect,
+}: {
+  suggestions: DepositSuggestion[];
+  onSelect: (suggestion: DepositSuggestion) => void;
+}) {
+  if (suggestions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="phone-suggestion-bubble mt-2 overflow-hidden rounded-lg border border-[#CBD5E1] bg-white shadow-lg">
+      {suggestions.map((suggestion) => (
+        <button
+          className="flex w-full items-center justify-between gap-3 border-b border-[#E5E7EB] px-3 py-2 text-left text-sm transition last:border-b-0 hover:bg-[#F8FAFC]"
+          key={suggestion.phone}
+          onClick={() => onSelect(suggestion)}
+          type="button"
+        >
+          <span className="min-w-0">
+            <span className="block truncate font-bold text-[#0F172A]">{suggestion.fullName}</span>
+            <span className="block text-xs font-semibold text-[#2563EB]">{suggestion.phone}</span>
+          </span>
+          <span className="shrink-0 text-right text-xs font-semibold text-[#64748B]">
+            {suggestion.activeDeposits > 0 ? (
+              <>
+                <span className="block text-[#2563EB]">
+                  {suggestion.totalCards} thẻ · {suggestion.totalBalls} bi
+                </span>
+                <span>{suggestion.activeDeposits} dòng đang gửi</span>
+              </>
+            ) : (
+              <>
+                <span className={`inline-flex rounded px-2 py-0.5 ${statusClass(suggestion.latestStatus)}`}>
+                  {suggestion.latestStatus}
+                </span>
+                <span className="mt-1 block">{formatDate(suggestion.latestDepositDate)}</span>
+              </>
+            )}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function lookupFromSuggestion(suggestion: DepositSuggestion, suggestions: DepositSuggestion[]): DepositLookup {
+  return {
+    found: suggestion.activeDeposits > 0,
+    phone: suggestion.phone,
+    fullName: suggestion.fullName,
+    activeDeposits: suggestion.activeDeposits,
+    totalCards: suggestion.totalCards,
+    totalBalls: suggestion.totalBalls,
+    suggestions,
+  };
 }
 
 function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
@@ -245,6 +321,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   });
   const [depositLookup, setDepositLookup] = useState<DepositLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [filterLookup, setFilterLookup] = useState<DepositLookup | null>(null);
+  const [filterLookupLoading, setFilterLookupLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     fullName: "",
     phone: "",
@@ -276,22 +354,21 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     };
   }, []);
 
-  const { activeDeposits, totalCards, totalBalls } = summary;
+  const { activeDeposits, historyEntries, todayDeposits, totalBalls, totalCards } = summary;
   const normalizedDepositPhone = normalizePhoneInput(depositForm.phone);
+  const normalizedFilterPhone = normalizePhoneInput(filters.phone);
   const activeDepositLookup =
     normalizedDepositPhone.length >= 8 && depositLookup?.phone === normalizedDepositPhone
       ? depositLookup
       : null;
-
-  const todayDeposits = useMemo(
-    () => deposits.filter((deposit) => deposit.depositDate === (clock?.date ?? getHanoiParts().date)).length,
-    [clock?.date, deposits],
-  );
-
-  const historyEntries = useMemo(
-    () => deposits.reduce((sum, deposit) => sum + deposit.history.length, 0),
-    [deposits],
-  );
+  const depositSuggestions =
+    normalizedDepositPhone.length >= minPhoneSuggestionDigits && depositLookup?.phone === normalizedDepositPhone
+      ? depositLookup.suggestions
+      : [];
+  const filterSuggestions =
+    normalizedFilterPhone.length >= minPhoneSuggestionDigits && filterLookup?.phone === normalizedFilterPhone
+      ? filterLookup.suggestions
+      : [];
 
   const pendingDepositTotals = useMemo(() => {
     if (!activeDepositLookup?.found) {
@@ -317,20 +394,21 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     }
   }, [showNotice]);
 
-  const loadDeposits = useCallback(async (filterValues: DepositFilters, pageToLoad = 1, append = false) => {
-    setLoading(true);
-
-    try {
+  const buildDepositQuery = useCallback(
+    (filterValues: DepositFilters, pageToLoad: number, limit: number) => {
       const params = new URLSearchParams();
       params.set("page", String(pageToLoad));
-      params.set("limit", String(depositPageLimit));
+      params.set("limit", String(limit));
 
-      if (filterValues.name.trim()) {
-        params.set("name", filterValues.name.trim());
+      const name = filterValues.name.trim();
+      const phone = filterValues.phone.trim();
+
+      if (name) {
+        params.set("name", name);
       }
 
-      if (filterValues.phone.trim()) {
-        params.set("phone", filterValues.phone.trim());
+      if (phone) {
+        params.set("phone", phone);
       }
 
       if (isAdmin && filterValues.date) {
@@ -341,6 +419,16 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         params.set("status", filterValues.status);
       }
 
+      return params;
+    },
+    [isAdmin],
+  );
+
+  const loadDeposits = useCallback(async (filterValues: DepositFilters, pageToLoad = 1, append = false) => {
+    setLoading(true);
+
+    try {
+      const params = buildDepositQuery(filterValues, pageToLoad, depositPageLimit);
       const data = await apiRequest<DepositListResponse>(`/api/deposits?${params.toString()}`);
       setDeposits((current) => (append ? [...current, ...data.deposits] : data.deposits));
       setPagination({
@@ -354,7 +442,27 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, showNotice]);
+  }, [buildDepositQuery, showNotice]);
+
+  const fetchAllDeposits = useCallback(async (filterValues: DepositFilters) => {
+    const allDeposits: Deposit[] = [];
+    let pageToLoad = 1;
+
+    while (true) {
+      const params = buildDepositQuery(filterValues, pageToLoad, exportPageLimit);
+      const data = await apiRequest<DepositListResponse>(`/api/deposits?${params.toString()}`);
+
+      allDeposits.push(...data.deposits);
+
+      if (!data.hasMore || data.deposits.length === 0) {
+        break;
+      }
+
+      pageToLoad += 1;
+    }
+
+    return allDeposits;
+  }, [buildDepositQuery]);
 
   useEffect(() => {
     if (!staffName) {
@@ -370,8 +478,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }, [loadDeposits, loadSummary, staffName]);
 
   useEffect(() => {
-    if (normalizedDepositPhone.length < 8) {
-      return;
+    if (normalizedDepositPhone.length < minPhoneSuggestionDigits) {
+      const timeoutId = window.setTimeout(() => {
+        setDepositLookup(null);
+        setLookupLoading(false);
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
 
     const controller = new AbortController();
@@ -388,7 +501,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           return;
         }
 
-        setDepositLookup(data.found ? data : null);
+        setDepositLookup(data);
 
         if (data.found && data.fullName) {
           setDepositForm((current) => {
@@ -419,6 +532,46 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     };
   }, [normalizedDepositPhone]);
 
+  useEffect(() => {
+    if (normalizedFilterPhone.length < minPhoneSuggestionDigits) {
+      const timeoutId = window.setTimeout(() => {
+        setFilterLookup(null);
+        setFilterLookupLoading(false);
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setFilterLookupLoading(true);
+
+      try {
+        const data = await apiRequest<DepositLookup>(
+          `/api/deposits/lookup?phone=${encodeURIComponent(normalizedFilterPhone)}`,
+          { signal: controller.signal },
+        );
+
+        if (!controller.signal.aborted) {
+          setFilterLookup(data);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setFilterLookup(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setFilterLookupLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [normalizedFilterPhone]);
+
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -430,6 +583,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   function handleClearFilters() {
     setFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
+    setFilterLookup(null);
     void loadDeposits(emptyFilters, 1);
   }
 
@@ -440,6 +594,24 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
   function handleLoadMore() {
     void loadDeposits(appliedFilters, pagination.page + 1, true);
+  }
+
+  function selectDepositSuggestion(suggestion: DepositSuggestion) {
+    setDepositForm((current) => ({
+      ...current,
+      fullName: suggestion.fullName,
+      phone: suggestion.phone,
+    }));
+    setDepositLookup(lookupFromSuggestion(suggestion, [suggestion]));
+  }
+
+  function selectFilterSuggestion(suggestion: DepositSuggestion) {
+    setFilters((current) => ({
+      ...current,
+      name: current.name.trim() ? current.name : suggestion.fullName,
+      phone: suggestion.phone,
+    }));
+    setFilterLookup(lookupFromSuggestion(suggestion, [suggestion]));
   }
 
   if (!staffName) {
@@ -578,7 +750,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }
 
   async function handleExportExcel() {
-    if (deposits.length === 0) {
+    if (pagination.total === 0) {
       showNotice("error", "Không có dữ liệu để xuất Excel.");
       return;
     }
@@ -586,6 +758,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     setExporting(true);
 
     try {
+      const exportDeposits = await fetchAllDeposits(appliedFilters);
+
+      if (exportDeposits.length === 0) {
+        showNotice("error", "Không có dữ liệu để xuất Excel.");
+        return;
+      }
+
       const { default: writeExcelFile } = await import("write-excel-file/browser");
       const exportedAt = getHanoiParts();
       const titleCell: Cell = {
@@ -608,7 +787,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         value,
         ...headerStyle,
       });
-      const depositRows = deposits.map((deposit, index) => [
+      const depositRows = exportDeposits.map((deposit, index) => [
         index + 1,
         deposit.fullName,
         deposit.phone,
@@ -668,7 +847,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       ];
 
       if (isAdmin) {
-        const historyRows = deposits.flatMap((deposit) =>
+        const historyRows = exportDeposits.flatMap((deposit) =>
           deposit.history.map((entry) => [
             deposit.fullName,
             deposit.phone,
@@ -970,9 +1149,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 />
               </label>
 
-              <label className="sm:col-span-2 lg:col-span-3">
-                <span className={labelClass}>Số điện thoại</span>
+              <div className="sm:col-span-2 lg:col-span-3">
+                <label className={labelClass} htmlFor="deposit-phone">
+                  Số điện thoại
+                </label>
                 <input
+                  id="deposit-phone"
                   className={inputClass}
                   inputMode="tel"
                   placeholder="Nhập số điện thoại"
@@ -985,7 +1167,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   }
                   required
                 />
-                {lookupLoading && normalizedDepositPhone.length >= 8 ? (
+                <PhoneSuggestionBubble
+                  suggestions={depositSuggestions}
+                  onSelect={selectDepositSuggestion}
+                />
+                {lookupLoading && normalizedDepositPhone.length >= minPhoneSuggestionDigits ? (
                   <span className="mt-2 block text-xs font-semibold leading-5 text-[#64748B]">
                     Đang kiểm tra SĐT...
                   </span>
@@ -998,7 +1184,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                       : ""}
                   </span>
                 ) : null}
-              </label>
+              </div>
 
               <div className="grid grid-cols-2 gap-3 sm:col-span-2 lg:contents">
                 <label className="lg:col-span-2">
@@ -1061,9 +1247,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   }
                 />
               </label>
-              <label className="lg:col-span-3">
-                <span className={labelClass}>Tìm theo SĐT</span>
+              <div className="lg:col-span-3">
+                <label className={labelClass} htmlFor="filter-phone">
+                  Tìm theo SĐT
+                </label>
                 <input
+                  id="filter-phone"
                   className={inputClass}
                   inputMode="tel"
                   placeholder="Nhập số điện thoại"
@@ -1072,7 +1261,16 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     setFilters((current) => ({ ...current, phone: event.target.value }))
                   }
                 />
-              </label>
+                <PhoneSuggestionBubble
+                  suggestions={filterSuggestions}
+                  onSelect={selectFilterSuggestion}
+                />
+                {filterLookupLoading && normalizedFilterPhone.length >= minPhoneSuggestionDigits ? (
+                  <span className="mt-2 block text-xs font-semibold leading-5 text-[#64748B]">
+                    Đang tìm khách...
+                  </span>
+                ) : null}
+              </div>
               {isAdmin ? (
                 <label className="lg:col-span-2">
                   <span className={labelClass}>Ngày gửi</span>
@@ -1135,7 +1333,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
                 <button
                   className={`${secondaryButton} w-full sm:w-auto`}
-                  disabled={exporting || deposits.length === 0}
+                  disabled={exporting || pagination.total === 0}
                   onClick={() => void handleExportExcel()}
                   type="button"
                 >

@@ -73,69 +73,66 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = depositCreateSchema.parse(body);
     const now = getHanoiNow();
-    const requestedStatus = data.status ?? activeDepositStatus;
 
     await connectMongo();
 
-    if (requestedStatus === activeDepositStatus) {
-      const matchingDeposits = await CustomerDeposit.find({
-        phone: data.phone,
-        status: activeDepositStatus,
-      }).sort({ createdAt: 1 });
-      const [depositToUpdate, ...duplicateDeposits] = matchingDeposits;
+    const matchingDeposits = await CustomerDeposit.find({
+      phone: data.phone,
+      status: activeDepositStatus,
+    }).sort({ createdAt: 1 });
+    const [depositToUpdate, ...duplicateDeposits] = matchingDeposits;
 
-      if (depositToUpdate) {
-        const existingCards = matchingDeposits.reduce((sum, deposit) => sum + deposit.cards, 0);
-        const existingBalls = matchingDeposits.reduce((sum, deposit) => sum + deposit.balls, 0);
-        const nextCards = existingCards + data.cards;
-        const nextBalls = existingBalls + data.balls;
+    if (depositToUpdate) {
+      const existingCards = matchingDeposits.reduce((sum, deposit) => sum + deposit.cards, 0);
+      const existingBalls = matchingDeposits.reduce((sum, deposit) => sum + deposit.balls, 0);
+      const nextCards = existingCards + data.cards;
+      const nextBalls = existingBalls + data.balls;
 
-        depositToUpdate.cards = nextCards;
-        depositToUpdate.balls = nextBalls;
-        depositToUpdate.totalText = buildTotalText(nextCards, nextBalls);
-        depositToUpdate.updatedByName = data.actorName;
-        depositToUpdate.history.push({
+      depositToUpdate.cards = nextCards;
+      depositToUpdate.balls = nextBalls;
+      depositToUpdate.totalText = buildTotalText(nextCards, nextBalls);
+      depositToUpdate.updatedByName = data.actorName;
+      depositToUpdate.history.push({
+        at: new Date(),
+        actorName: data.actorName,
+        action: "UPDATE",
+        content: `Cộng thêm theo SĐT ${data.phone}: ${data.cards} thẻ, ${data.balls} bi. Tổng mới: ${nextCards} thẻ, ${nextBalls} bi.${
+          duplicateDeposits.length > 0 ? ` Đã gộp ${duplicateDeposits.length} bản ghi trùng SĐT.` : ""
+        }`,
+      });
+
+      duplicateDeposits.forEach((duplicate) => {
+        duplicate.status = canceledDepositStatus;
+        duplicate.updatedByName = data.actorName;
+        duplicate.history.push({
           at: new Date(),
           actorName: data.actorName,
           action: "UPDATE",
-          content: `Cộng thêm theo SĐT ${data.phone}: ${data.cards} thẻ, ${data.balls} bi. Tổng mới: ${nextCards} thẻ, ${nextBalls} bi.${
-            duplicateDeposits.length > 0 ? ` Đã gộp ${duplicateDeposits.length} bản ghi trùng SĐT.` : ""
-          }`,
+          content: `Gộp vào bản ghi ${depositToUpdate._id} vì trùng SĐT ${data.phone}.`,
         });
+      });
 
-        duplicateDeposits.forEach((duplicate) => {
-          duplicate.status = canceledDepositStatus;
-          duplicate.updatedByName = data.actorName;
-          duplicate.history.push({
-            at: new Date(),
-            actorName: data.actorName,
-            action: "UPDATE",
-            content: `Gộp vào bản ghi ${depositToUpdate._id} vì trùng SĐT ${data.phone}.`,
-          });
-        });
+      await Promise.all([
+        depositToUpdate.save(),
+        ...duplicateDeposits.map((deposit) => deposit.save()),
+      ]);
 
-        await Promise.all([
-          depositToUpdate.save(),
-          ...duplicateDeposits.map((deposit) => deposit.save()),
-        ]);
-
-        return NextResponse.json({
-          deposit: serializeDeposit(depositToUpdate),
-          merged: true,
-          mergedCount: matchingDeposits.length,
-        });
-      }
+      return NextResponse.json({
+        deposit: serializeDeposit(depositToUpdate),
+        merged: true,
+        mergedCount: matchingDeposits.length,
+      });
     }
 
     const deposit = await CustomerDeposit.create({
       fullName: data.fullName,
       phone: data.phone,
-      depositDate: data.depositDate ?? now.date,
-      depositTime: data.depositTime ?? now.time,
+      depositDate: now.date,
+      depositTime: now.time,
       cards: data.cards,
       balls: data.balls,
       totalText: buildTotalText(data.cards, data.balls),
-      status: requestedStatus,
+      status: activeDepositStatus,
       createdByName: data.actorName,
       updatedByName: data.actorName,
       history: [

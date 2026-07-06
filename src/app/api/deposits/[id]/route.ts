@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
-import { depositUpdateSchema } from "@/lib/validation";
+import { depositAdminUpdateSchema, depositStaffUpdateSchema } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 import { verifyAdmin } from "@/lib/auth";
 
@@ -20,6 +20,7 @@ const labels: Record<string, string> = {
   balls: "Bi",
   status: "Trạng thái",
 };
+const adminOnlyFields = ["fullName", "phone", "depositDate", "depositTime"] as const;
 
 function formatChange(label: string, before: unknown, after: unknown) {
   return `${label}: ${before} -> ${after}`;
@@ -48,13 +49,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const body = await request.json();
-    const data = depositUpdateSchema.parse(body);
+    const rawData =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : {};
 
-    const isModifyingAdminFields =
-      data.fullName !== undefined ||
-      data.phone !== undefined ||
-      data.depositDate !== undefined ||
-      data.depositTime !== undefined;
+    const isModifyingAdminFields = adminOnlyFields.some((field) =>
+      Object.prototype.hasOwnProperty.call(rawData, field),
+    );
 
     if (isModifyingAdminFields) {
       const isApproved = await verifyAdmin();
@@ -72,24 +74,37 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const changes: string[] = [];
+    let actorName = "";
 
-    applyChange(deposit, "fullName", data.fullName, changes);
-    applyChange(deposit, "phone", data.phone, changes);
-    applyChange(deposit, "depositDate", data.depositDate, changes);
-    applyChange(deposit, "depositTime", data.depositTime, changes);
-    applyChange(deposit, "cards", data.cards, changes);
-    applyChange(deposit, "balls", data.balls, changes);
-    applyChange(deposit, "status", data.status, changes);
+    if (isModifyingAdminFields) {
+      const data = depositAdminUpdateSchema.parse(body);
+      actorName = data.actorName;
+
+      applyChange(deposit, "fullName", data.fullName, changes);
+      applyChange(deposit, "phone", data.phone, changes);
+      applyChange(deposit, "depositDate", data.depositDate, changes);
+      applyChange(deposit, "depositTime", data.depositTime, changes);
+      applyChange(deposit, "cards", data.cards, changes);
+      applyChange(deposit, "balls", data.balls, changes);
+      applyChange(deposit, "status", data.status, changes);
+    } else {
+      const data = depositStaffUpdateSchema.parse(body);
+      actorName = data.actorName;
+
+      applyChange(deposit, "cards", data.cards, changes);
+      applyChange(deposit, "balls", data.balls, changes);
+      applyChange(deposit, "status", data.status, changes);
+    }
 
     if (changes.length === 0) {
       return NextResponse.json({ deposit: serializeDeposit(deposit) });
     }
 
     deposit.totalText = buildTotalText(deposit.cards, deposit.balls);
-    deposit.updatedByName = data.actorName;
+    deposit.updatedByName = actorName;
     deposit.history.push({
       at: new Date(),
-      actorName: data.actorName,
+      actorName,
       action: "UPDATE",
       content: changes.join("; "),
     });

@@ -37,3 +37,20 @@ button:disabled {
   background: #facc15;
   color: #111827;
 }
+
+@keyframes phone-suggestion-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.phone-suggestion-bubble {
+  animation: phone-suggestion-pop 160ms ease-out;
+  transform-origin: top center;
+}
