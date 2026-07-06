@@ -1562,20 +1562,24 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                       >
                         {deposit.status}
                       </span>
-                      <span
-                        className={`rounded-md px-3 py-1 text-xs font-semibold ${cardActionClass(
-                          deposit.cardAction,
-                        )}`}
-                      >
-                        {deposit.cardAction}
-                      </span>
-                      <span
-                        className={`rounded-md px-3 py-1 text-xs font-semibold ${ballActionClass(
-                          deposit.ballAction,
-                        )}`}
-                      >
-                        {deposit.ballAction}
-                      </span>
+                      {deposit.cards > 0 ? (
+                        <span
+                          className={`rounded-md px-3 py-1 text-xs font-semibold ${cardActionClass(
+                            deposit.cardAction,
+                          )}`}
+                        >
+                          {deposit.cardAction}
+                        </span>
+                      ) : null}
+                      {deposit.balls > 0 ? (
+                        <span
+                          className={`rounded-md px-3 py-1 text-xs font-semibold ${ballActionClass(
+                            deposit.ballAction,
+                          )}`}
+                        >
+                          {deposit.ballAction}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
