@@ -8,8 +8,7 @@ import { APP_SHORT_NAME } from "@/lib/app-info";
 
 type NudgeKind = "ios-safari" | "zalo";
 
-const dismissStorageKey = "pinball_install_nudge_dismissed_at";
-const dismissForMs = 3 * 24 * 60 * 60 * 1000;
+const dismissSessionKey = "pinball_install_nudge_dismissed";
 
 function isIOSDevice() {
   return (
@@ -47,11 +46,9 @@ function getNudgeKind() {
   return null;
 }
 
-function wasRecentlyDismissed() {
+function wasDismissedThisSession() {
   try {
-    const dismissedAt = Number(window.localStorage.getItem(dismissStorageKey) ?? 0);
-
-    return Number.isFinite(dismissedAt) && Date.now() - dismissedAt < dismissForMs;
+    return window.sessionStorage.getItem(dismissSessionKey) === "true";
   } catch {
     return false;
   }
@@ -70,7 +67,7 @@ export default function InstallNudge() {
         return;
       }
 
-      if (nextKind !== "zalo" && wasRecentlyDismissed()) {
+      if (nextKind === "ios-safari" && wasDismissedThisSession()) {
         setKind(null);
         return;
       }
@@ -83,7 +80,7 @@ export default function InstallNudge() {
 
   function dismiss() {
     try {
-      window.localStorage.setItem(dismissStorageKey, String(Date.now()));
+      window.sessionStorage.setItem(dismissSessionKey, "true");
     } catch {
       // Some in-app browsers block storage; closing for this render is still useful.
     }
