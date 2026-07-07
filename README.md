@@ -42,6 +42,16 @@ Mở:
 - Nhân viên: `http://localhost:3000`
 - Admin: `http://localhost:3000/admin`
 
+## Cài app PWA
+
+Mở trang `/install` trên domain production để xem hướng dẫn cài app cho iOS, Android Chrome và Chrome desktop.
+
+- iPhone/iPad: mở bằng Safari, bấm Chia sẻ, chọn Thêm vào Màn hình chính, rồi bấm Thêm.
+- Android Chrome: mở bằng Chrome, bấm menu ba chấm, chọn Cài đặt ứng dụng hoặc Thêm vào màn hình chính.
+- Chrome desktop: bấm biểu tượng cài đặt trên thanh địa chỉ, hoặc vào menu Chrome và chọn cài trang này dưới dạng ứng dụng.
+
+Nếu máy đã từng cài bản icon lỗi, hãy xóa icon cũ khỏi màn hình chính rồi cài lại từ `/install`.
+
 ## Production
 
 ```bash

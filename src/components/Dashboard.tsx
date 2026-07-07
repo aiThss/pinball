@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Clock3,
   Coins,
+  Download,
   Eye,
   FileDown,
   LayoutDashboard,
@@ -152,7 +153,7 @@ const primaryButton =
 const secondaryButton =
   "inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[#CBD5E1] bg-white px-4 text-sm font-semibold text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC] disabled:opacity-50";
 const iconButton =
-  "inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]";
+  "inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]";
 
 function formatDateTime(value?: string) {
   if (!value) {
@@ -1026,7 +1027,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           </div>
 
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-4">
-            <div className="text-right text-xs font-semibold sm:text-sm">
+            <div className="hidden text-right text-xs font-semibold sm:block sm:text-sm">
               {clock ? (
                 <>
                   <div>{clock.time}</div>
@@ -1037,9 +1038,18 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               )}
             </div>
             <div className="hidden h-10 w-px bg-[#E5E7EB] sm:block" />
+            <Link
+              aria-label="Hướng dẫn cài app"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7] sm:w-auto sm:px-4 sm:text-sm sm:font-semibold"
+              href="/install"
+              title="Hướng dẫn cài app"
+            >
+              <Download aria-hidden="true" size={17} />
+              <span className="hidden sm:inline">Cài app</span>
+            </Link>
             <button
               aria-label={isAdmin ? "Đăng xuất Admin" : "Đổi nhân viên"}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]"
               onClick={isAdmin ? handleAdminLogout : switchStaff}
               title={isAdmin ? "Đăng xuất Admin" : "Đổi nhân viên"}
               type="button"
