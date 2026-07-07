@@ -31,6 +31,10 @@ function isIOSDevice() {
   );
 }
 
+function isAndroidDevice() {
+  return /Android/i.test(navigator.userAgent);
+}
+
 function isStandaloneMode() {
   const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
 
@@ -70,16 +74,24 @@ const androidSteps = [
   },
 ];
 
-const zaloSteps = [
+const zaloStepsIOS = [
   {
     icon: Ellipsis,
     text: 'Để cài app và hiện logo đúng, bấm vào dấu 3 chấm ở góc phải trên cùng rồi chọn "Mở bằng Safari".',
   },
 ];
 
+const zaloStepsAndroid = [
+  {
+    icon: Ellipsis,
+    text: 'Để cài app và hiện logo đúng, bấm vào dấu 3 chấm ở góc phải trên cùng rồi chọn "Mở bằng Chrome".',
+  },
+];
+
 export default function InstallGuide() {
   const router = useRouter();
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
   const [isZalo, setIsZalo] = useState(false);
   const [canPrompt, setCanPrompt] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -88,6 +100,7 @@ export default function InstallGuide() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setIsIOS(isIOSDevice());
+      setIsAndroid(isAndroidDevice());
       setIsZalo(/Zalo/i.test(navigator.userAgent));
 
       if (isStandaloneMode()) {
@@ -176,7 +189,8 @@ export default function InstallGuide() {
 
             {isZalo ? (
               <div className="mt-6 rounded-lg border border-[#FACC15]/50 bg-[#422006] px-4 py-3 text-sm font-semibold leading-6 text-[#FEF3C7]">
-                Đang mở trong Zalo. Để cài app lên màn hình chính và hiện logo đúng, bấm vào dấu 3 chấm ở góc phải trên cùng rồi chọn Mở bằng Safari.
+                Đang mở trong Zalo. Để cài app lên màn hình chính và hiện logo đúng, bấm vào dấu 3 chấm ở góc phải trên cùng rồi chọn{" "}
+                {isAndroid ? "Mở bằng Chrome" : "Mở bằng Safari"}.
               </div>
             ) : isIOS ? (
               <div className="mt-6 rounded-lg border border-[#22D3EE]/40 bg-[#083344] px-4 py-3 text-sm font-semibold leading-6 text-[#CFFAFE]">
@@ -208,7 +222,7 @@ export default function InstallGuide() {
             <GuideSection
               icon={<Ellipsis aria-hidden="true" size={22} />}
               title="Cài app từ Zalo"
-              steps={zaloSteps}
+              steps={isAndroid ? zaloStepsAndroid : zaloStepsIOS}
               accent="bg-[#FACC15] text-[#422006]"
             />
           ) : (
@@ -225,6 +239,18 @@ export default function InstallGuide() {
                 title="Android Chrome"
                 steps={androidSteps}
                 accent="bg-[#DC2626] text-white"
+                installButton={
+                  canPrompt ? (
+                    <button
+                      className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-[#22D3EE] px-5 text-sm font-bold text-[#06202A] transition hover:bg-[#67E8F9]"
+                      onClick={() => void promptInstall()}
+                      type="button"
+                    >
+                      <Plus aria-hidden="true" size={18} />
+                      Cài app ngay
+                    </button>
+                  ) : null
+                }
               />
             </>
           )}
@@ -237,11 +263,13 @@ export default function InstallGuide() {
 function GuideSection({
   accent,
   icon,
+  installButton,
   steps,
   title,
 }: {
   accent: string;
   icon: React.ReactNode;
+  installButton?: React.ReactNode;
   steps: Array<{ icon: React.ComponentType<{ "aria-hidden": true; size: number }>; text: string }>;
   title: string;
 }) {
@@ -278,6 +306,7 @@ function GuideSection({
           </span>
         </div>
       ) : null}
+      {installButton ?? null}
     </section>
   );
 }
