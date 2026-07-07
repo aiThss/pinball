@@ -10,9 +10,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   CircleCheck,
-  ClipboardPaste,
-  Compass,
-  Copy,
+  Ellipsis,
   MonitorSmartphone,
   Plus,
   Share2,
@@ -72,53 +70,10 @@ const androidSteps = [
   },
 ];
 
-const zaloIosSteps = [
+const zaloSteps = [
   {
-    icon: Copy,
-    text: "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
-  },
-  {
-    icon: Compass,
-    text: "Mở Safari trên iPhone hoặc iPad.",
-  },
-  {
-    icon: ClipboardPaste,
-    text: "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
-  },
-  {
-    icon: Share2,
-    text: "Bấm Share ở thanh dưới cùng Safari.",
-  },
-  {
-    icon: Smartphone,
-    text: 'Kéo xuống và chọn "Thêm vào Màn hình chính".',
-  },
-  {
-    icon: CircleCheck,
-    text: 'Bấm "Thêm" rồi mở app từ màn hình chính.',
-  },
-];
-
-const zaloAndroidSteps = [
-  {
-    icon: Copy,
-    text: "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
-  },
-  {
-    icon: MonitorSmartphone,
-    text: "Mở Chrome trên Android.",
-  },
-  {
-    icon: ClipboardPaste,
-    text: "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
-  },
-  {
-    icon: Plus,
-    text: 'Bấm menu ba chấm và chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính".',
-  },
-  {
-    icon: CircleCheck,
-    text: 'Bấm "Cài đặt" hoặc "Thêm" để hoàn tất.',
+    icon: Ellipsis,
+    text: 'Bấm vào dấu 3 chấm ở góc phải trên cùng, rồi chọn "Mở bằng Safari".',
   },
 ];
 
@@ -181,9 +136,6 @@ export default function InstallGuide() {
     }
   }
 
-  const iosInstallSteps = isZalo ? zaloIosSteps : iosSteps;
-  const androidInstallSteps = isZalo ? zaloAndroidSteps : androidSteps;
-
   return (
     <main className="min-h-[100dvh] bg-[#020617] text-white">
       <header className="border-b border-white/10 bg-[#020617]">
@@ -224,7 +176,7 @@ export default function InstallGuide() {
 
             {isZalo ? (
               <div className="mt-6 rounded-lg border border-[#FACC15]/50 bg-[#422006] px-4 py-3 text-sm font-semibold leading-6 text-[#FEF3C7]">
-                Đang mở trong Zalo: hãy sao chép liên kết rồi dán vào Safari hoặc Chrome để cài app đúng logo.
+                Đang mở trong Zalo: bấm vào dấu 3 chấm ở góc phải trên cùng và chọn Mở bằng Safari.
               </div>
             ) : isIOS ? (
               <div className="mt-6 rounded-lg border border-[#22D3EE]/40 bg-[#083344] px-4 py-3 text-sm font-semibold leading-6 text-[#CFFAFE]">
@@ -239,7 +191,7 @@ export default function InstallGuide() {
               </div>
             ) : null}
 
-            {!isIOS ? (
+            {!isIOS && !isZalo ? (
               <button
                 className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-[#22D3EE] px-5 text-sm font-bold text-[#06202A] transition hover:bg-[#67E8F9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 disabled={!canPrompt}
@@ -252,19 +204,30 @@ export default function InstallGuide() {
             ) : null}
           </section>
 
-          <GuideSection
-            icon={<Apple aria-hidden="true" size={22} />}
-            title="iPhone hoặc iPad"
-            steps={iosInstallSteps}
-            accent="bg-[#111827] text-white"
-          />
+          {isZalo ? (
+            <GuideSection
+              icon={<Ellipsis aria-hidden="true" size={22} />}
+              title="Đang mở trong Zalo"
+              steps={zaloSteps}
+              accent="bg-[#FACC15] text-[#422006]"
+            />
+          ) : (
+            <>
+              <GuideSection
+                icon={<Apple aria-hidden="true" size={22} />}
+                title="iPhone hoặc iPad"
+                steps={iosSteps}
+                accent="bg-[#111827] text-white"
+              />
 
-          <GuideSection
-            icon={<MonitorSmartphone aria-hidden="true" size={22} />}
-            title="Android Chrome"
-            steps={androidInstallSteps}
-            accent="bg-[#DC2626] text-white"
-          />
+              <GuideSection
+                icon={<MonitorSmartphone aria-hidden="true" size={22} />}
+                title="Android Chrome"
+                steps={androidSteps}
+                accent="bg-[#DC2626] text-white"
+              />
+            </>
+          )}
         </div>
       </section>
     </main>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Download, ExternalLink, Share2, X } from "lucide-react";
+import { Download, Ellipsis, Share2, X } from "lucide-react";
 import { APP_SHORT_NAME } from "@/lib/app-info";
 
 type NudgeKind = "ios-safari" | "zalo";
@@ -105,15 +105,15 @@ export default function InstallNudge() {
       >
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#111827] text-white">
-            {isZalo ? <ExternalLink aria-hidden="true" size={20} /> : <Share2 aria-hidden="true" size={20} />}
+            {isZalo ? <Ellipsis aria-hidden="true" size={20} /> : <Share2 aria-hidden="true" size={20} />}
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-bold">
-              {isZalo ? "Mở bằng trình duyệt để cài app" : `Cài ${APP_SHORT_NAME} lên màn hình chính`}
+              {isZalo ? "Đang mở trong Zalo" : `Cài ${APP_SHORT_NAME} lên màn hình chính`}
             </h2>
             <p className="mt-1 text-sm leading-6 text-[#475569]">
               {isZalo
-                ? "Zalo không cài PWA ổn định. Hãy sao chép liên kết, mở Safari trên iPhone hoặc Chrome trên Android, rồi dán link để cài."
+                ? "Bấm vào dấu 3 chấm ở góc phải trên cùng, rồi chọn Mở bằng Safari."
                 : "Trên Safari, bấm Chia sẻ rồi chọn Thêm vào Màn hình chính."}
             </p>
           </div>
@@ -127,23 +127,35 @@ export default function InstallNudge() {
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-          <Link
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-[#1F2937]"
-            href="/install"
-            onClick={dismiss}
-          >
-            <Download aria-hidden="true" size={17} />
-            Xem hướng dẫn
-          </Link>
-          <button
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#CBD5E1] bg-white px-4 text-sm font-semibold text-[#0F172A] transition hover:bg-[#F8FAFC]"
-            onClick={dismiss}
-            type="button"
-          >
-            Để sau
-          </button>
-        </div>
+        {isZalo ? (
+          <div className="mt-4 grid gap-2">
+            <button
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-[#1F2937]"
+              onClick={dismiss}
+              type="button"
+            >
+              Đã hiểu
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+            <Link
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-[#1F2937]"
+              href="/install"
+              onClick={dismiss}
+            >
+              <Download aria-hidden="true" size={17} />
+              Xem hướng dẫn
+            </Link>
+            <button
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#CBD5E1] bg-white px-4 text-sm font-semibold text-[#0F172A] transition hover:bg-[#F8FAFC]"
+              onClick={dismiss}
+              type="button"
+            >
+              Để sau
+            </button>
+          </div>
+        )}
       </section>
     </div>
   );
