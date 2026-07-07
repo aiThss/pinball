@@ -5,13 +5,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowDown,
   Apple,
   CheckCircle2,
   ChevronLeft,
-  Download,
+  CircleCheck,
+  ClipboardPaste,
+  Compass,
+  Copy,
   MonitorSmartphone,
   Plus,
   Share2,
+  Smartphone,
   Ticket,
 } from "lucide-react";
 import { APP_NAME, APP_SHORT_NAME } from "@/lib/app-info";
@@ -38,38 +43,83 @@ function isStandaloneMode() {
 }
 
 const iosSteps = [
-  "Mở đúng domain bằng Safari trên iPhone hoặc iPad.",
-  "Nhấn nút Chia sẻ ở thanh công cụ của Safari.",
-  "Chọn Thêm vào Màn hình chính.",
-  `Giữ tên ${APP_SHORT_NAME} rồi nhấn Thêm.`,
+  {
+    icon: Share2,
+    text: "Bấm nút Share ở thanh dưới cùng Safari.",
+  },
+  {
+    icon: Smartphone,
+    text: 'Kéo xuống và chọn "Thêm vào Màn hình chính".',
+  },
+  {
+    icon: CircleCheck,
+    text: 'Bấm "Thêm" rồi mở app từ màn hình chính.',
+  },
 ];
 
 const androidSteps = [
-  "Mở đúng domain bằng Chrome trên Android.",
-  "Nhấn menu ba chấm ở góc trên.",
-  "Chọn Cài đặt ứng dụng hoặc Thêm vào màn hình chính.",
-  "Nhấn Cài đặt hoặc Thêm để hoàn tất.",
-];
-
-const desktopSteps = [
-  "Mở đúng domain bằng Chrome trên máy tính.",
-  "Nhấn biểu tượng cài đặt ở thanh địa chỉ nếu Chrome hiển thị.",
-  "Nếu chưa thấy, mở menu Chrome rồi chọn Cài đặt trang này dưới dạng ứng dụng.",
-  "Xác nhận Cài đặt để app xuất hiện như ứng dụng desktop.",
+  {
+    icon: MonitorSmartphone,
+    text: "Mở link bằng Chrome trên Android.",
+  },
+  {
+    icon: Plus,
+    text: 'Bấm menu ba chấm và chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính".',
+  },
+  {
+    icon: CircleCheck,
+    text: 'Bấm "Cài đặt" hoặc "Thêm" để hoàn tất.',
+  },
 ];
 
 const zaloIosSteps = [
-  "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
-  "Mở Safari trên iPhone hoặc iPad.",
-  "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
-  "Nhấn nút Chia sẻ, chọn Thêm vào Màn hình chính, rồi bấm Thêm.",
+  {
+    icon: Copy,
+    text: "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
+  },
+  {
+    icon: Compass,
+    text: "Mở Safari trên iPhone hoặc iPad.",
+  },
+  {
+    icon: ClipboardPaste,
+    text: "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
+  },
+  {
+    icon: Share2,
+    text: "Bấm Share ở thanh dưới cùng Safari.",
+  },
+  {
+    icon: Smartphone,
+    text: 'Kéo xuống và chọn "Thêm vào Màn hình chính".',
+  },
+  {
+    icon: CircleCheck,
+    text: 'Bấm "Thêm" rồi mở app từ màn hình chính.',
+  },
 ];
 
 const zaloAndroidSteps = [
-  "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
-  "Mở Chrome trên Android.",
-  "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
-  "Nhấn menu ba chấm, chọn Cài đặt ứng dụng hoặc Thêm vào màn hình chính.",
+  {
+    icon: Copy,
+    text: "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
+  },
+  {
+    icon: MonitorSmartphone,
+    text: "Mở Chrome trên Android.",
+  },
+  {
+    icon: ClipboardPaste,
+    text: "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
+  },
+  {
+    icon: Plus,
+    text: 'Bấm menu ba chấm và chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính".',
+  },
+  {
+    icon: CircleCheck,
+    text: 'Bấm "Cài đặt" hoặc "Thêm" để hoàn tất.',
+  },
 ];
 
 export default function InstallGuide() {
@@ -135,11 +185,11 @@ export default function InstallGuide() {
   const androidInstallSteps = isZalo ? zaloAndroidSteps : androidSteps;
 
   return (
-    <main className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A]">
-      <header className="border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <main className="min-h-[100dvh] bg-[#020617] text-white">
+      <header className="border-b border-white/10 bg-[#020617]">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
-            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[#CBD5E1] bg-white px-3 text-sm font-semibold text-[#0F172A] transition hover:bg-[#F8FAFC]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 text-sm font-semibold text-white transition hover:bg-white/10"
             href="/"
           >
             <ChevronLeft aria-hidden="true" size={18} />
@@ -152,41 +202,38 @@ export default function InstallGuide() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-5xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[1fr_320px] lg:py-8">
+      <section className="mx-auto max-w-3xl px-4 py-7 sm:px-6 sm:py-10">
         <div className="space-y-5">
-          <section className="rounded-lg border border-[#CBD5E1] bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <section className="text-center">
+            <div className="flex justify-center">
               <Image
                 alt={`${APP_NAME} icon`}
-                className="h-20 w-20 rounded-[8px] border border-[#E5E7EB]"
-                height={80}
+                className="h-24 w-24 rounded-[18px] border border-white/10 shadow-xl"
+                height={96}
                 src="/icons/icon-192.png"
-                width={80}
+                width={96}
               />
-              <div className="min-w-0">
-                <p className="text-sm font-bold uppercase text-[#2563EB]">Cài PWA</p>
-                <h1 className="mt-1 text-2xl font-bold tracking-normal sm:text-3xl">
-                  Cài {APP_NAME} lên điện thoại hoặc máy tính
-                </h1>
-                <p className="mt-2 text-sm leading-6 text-[#475569]">
-                  Sau khi cài, app mở từ màn hình chính như ứng dụng riêng và dùng logo
-                  PINBALL đã chuẩn hóa cho Chrome, Android và iOS.
-                </p>
-              </div>
             </div>
+            <p className="mt-5 text-sm font-bold uppercase text-[#22D3EE]">Cài app</p>
+            <h1 className="mx-auto mt-2 max-w-xl text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
+              Thêm {APP_SHORT_NAME} vào màn hình chính
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#CBD5E1]">
+              Để mở nhanh tại quầy và hiện logo đúng, hãy thêm app vào màn hình chính trên điện thoại.
+            </p>
 
             {isZalo ? (
-              <div className="mt-5 rounded-md border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-semibold text-[#92400E]">
+              <div className="mt-6 rounded-lg border border-[#FACC15]/50 bg-[#422006] px-4 py-3 text-sm font-semibold leading-6 text-[#FEF3C7]">
                 Đang mở trong Zalo: hãy sao chép liên kết rồi dán vào Safari hoặc Chrome để cài app đúng logo.
               </div>
             ) : isIOS ? (
-              <div className="mt-5 rounded-md border border-[#BAE6FD] bg-[#F0F9FF] px-4 py-3 text-sm font-semibold text-[#075985]">
+              <div className="mt-6 rounded-lg border border-[#22D3EE]/40 bg-[#083344] px-4 py-3 text-sm font-semibold leading-6 text-[#CFFAFE]">
                 iPhone/iPad cần cài bằng Safari để hiện đúng tùy chọn Thêm vào Màn hình chính.
               </div>
             ) : null}
 
             {installed ? (
-              <div className="mt-5 flex items-start gap-3 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-3 text-sm font-semibold text-[#166534]">
+              <div className="mt-6 flex items-start gap-3 rounded-lg border border-[#22C55E]/40 bg-[#052E16] px-4 py-3 text-sm font-semibold text-[#BBF7D0]">
                 <CheckCircle2 aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
                 App đã được cài. Bạn có thể mở từ màn hình chính hoặc danh sách ứng dụng.
               </div>
@@ -194,12 +241,12 @@ export default function InstallGuide() {
 
             {!isIOS ? (
               <button
-                className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-[#111827] px-5 text-sm font-semibold text-white transition hover:bg-[#1F2937] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-[#22D3EE] px-5 text-sm font-bold text-[#06202A] transition hover:bg-[#67E8F9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 disabled={!canPrompt}
                 onClick={() => void promptInstall()}
                 type="button"
               >
-                <Download aria-hidden="true" size={18} />
+                <Plus aria-hidden="true" size={18} />
                 {canPrompt ? "Cài app ngay" : "Dùng hướng dẫn bên dưới để cài"}
               </button>
             ) : null}
@@ -218,32 +265,7 @@ export default function InstallGuide() {
             steps={androidInstallSteps}
             accent="bg-[#DC2626] text-white"
           />
-
-          <GuideSection
-            icon={<Download aria-hidden="true" size={22} />}
-            title="Chrome desktop"
-            steps={desktopSteps}
-            accent="bg-[#0891B2] text-white"
-          />
         </div>
-
-        <aside className="h-fit rounded-lg border border-[#CBD5E1] bg-white p-5 shadow-sm">
-          <h2 className="text-base font-bold">Dấu hiệu cài đúng</h2>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-[#475569]">
-            <li className="flex gap-2">
-              <CheckCircle2 aria-hidden="true" className="mt-1 shrink-0 text-[#16A34A]" size={16} />
-              Icon ngoài màn hình chính hiển thị logo máy pinball rõ nét.
-            </li>
-            <li className="flex gap-2">
-              <CheckCircle2 aria-hidden="true" className="mt-1 shrink-0 text-[#16A34A]" size={16} />
-              Khi mở app, thanh địa chỉ trình duyệt không còn hiện như tab web thường.
-            </li>
-            <li className="flex gap-2">
-              <CheckCircle2 aria-hidden="true" className="mt-1 shrink-0 text-[#16A34A]" size={16} />
-              Nếu iOS chưa thấy logo, xóa icon cũ rồi thêm lại bằng Safari.
-            </li>
-          </ul>
-        </aside>
       </section>
     </main>
   );
@@ -257,36 +279,39 @@ function GuideSection({
 }: {
   accent: string;
   icon: React.ReactNode;
-  steps: string[];
+  steps: Array<{ icon: React.ComponentType<{ "aria-hidden": true; size: number }>; text: string }>;
   title: string;
 }) {
   return (
-    <section className="rounded-lg border border-[#CBD5E1] bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center gap-3">
+    <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-sm">
+      <div className="mb-5 flex items-center gap-3">
         <div className={`flex h-11 w-11 items-center justify-center rounded-md ${accent}`}>
           {icon}
         </div>
-        <h2 className="text-lg font-bold">{title}</h2>
+        <h2 className="text-lg font-bold text-white">{title}</h2>
       </div>
-      <ol className="space-y-3">
+      <ol className="space-y-4">
         {steps.map((step, index) => (
-          <li className="flex gap-3 text-sm leading-6 text-[#334155]" key={step}>
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#F1F5F9] text-xs font-bold text-[#0F172A]">
-              {index + 1}
-            </span>
-            <span className="pt-0.5">{step}</span>
+          <li key={`${title}-${step.text}`}>
+            <div className="grid min-h-[88px] grid-cols-[52px_1fr] items-center gap-4 rounded-lg border border-white/10 bg-[#111827] px-4 py-4">
+              <span className="flex h-12 w-12 items-center justify-center rounded-md bg-white text-[#0F172A]">
+                <step.icon aria-hidden={true} size={24} />
+              </span>
+              <span className="text-base font-bold leading-7 text-white">{step.text}</span>
+            </div>
+            {index < steps.length - 1 ? (
+              <div className="flex justify-center py-3 text-white/80">
+                <ArrowDown aria-hidden="true" size={28} />
+              </div>
+            ) : null}
           </li>
         ))}
       </ol>
       {title === "iPhone hoặc iPad" ? (
-        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-[#475569]">
-          <span className="inline-flex min-h-9 items-center gap-1 rounded-md border border-[#CBD5E1] px-2">
+        <div className="mt-5 rounded-lg border border-[#22D3EE]/40 bg-[#083344] px-4 py-3 text-sm font-semibold leading-6 text-[#CFFAFE]">
+          <span className="inline-flex items-center gap-2">
             <Share2 aria-hidden="true" size={14} />
-            Chia sẻ
-          </span>
-          <span className="inline-flex min-h-9 items-center gap-1 rounded-md border border-[#CBD5E1] px-2">
-            <Plus aria-hidden="true" size={14} />
-            Thêm vào Màn hình chính
+            Nút Share trông như ô vuông có mũi tên lên, nằm ở thanh dưới cùng Safari.
           </span>
         </div>
       ) : null}

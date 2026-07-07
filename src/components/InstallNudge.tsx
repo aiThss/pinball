@@ -63,12 +63,19 @@ export default function InstallNudge() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      if (pathname === "/install" || isStandaloneMode() || wasRecentlyDismissed()) {
+      const nextKind = getNudgeKind();
+
+      if (pathname === "/install" || isStandaloneMode()) {
         setKind(null);
         return;
       }
 
-      setKind(getNudgeKind());
+      if (nextKind !== "zalo" && wasRecentlyDismissed()) {
+        setKind(null);
+        return;
+      }
+
+      setKind(nextKind);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
