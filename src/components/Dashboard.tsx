@@ -1871,60 +1871,64 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           className="fixed inset-0 z-50 flex items-end justify-center bg-[#0F172A]/50 px-3 py-0 sm:items-center sm:px-4 sm:py-6"
           role="dialog"
         >
-          <section className="max-h-[92svh] w-full max-w-lg overflow-y-auto rounded-t-lg border border-[#E5E7EB] bg-white p-4 shadow-xl sm:rounded-lg sm:p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] text-[#92400E]">
-                  <Trophy aria-hidden="true" size={22} />
+          <section className="flex max-h-[92svh] w-full max-w-lg flex-col rounded-t-lg border border-[#E5E7EB] bg-white shadow-xl sm:rounded-lg">
+            <div className="shrink-0 border-b border-[#E5E7EB] p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] text-[#92400E]">
+                    <Trophy aria-hidden="true" size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-xl font-bold" id="card-ranking-title">
+                      Xếp hạng thẻ
+                    </h2>
+                    <p className="text-sm text-[#64748B]">Top khách đang gửi nhiều thẻ nhất</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h2 className="truncate text-xl font-bold" id="card-ranking-title">
-                    Xếp hạng thẻ
-                  </h2>
-                  <p className="text-sm text-[#64748B]">Top khách đang gửi nhiều thẻ nhất</p>
-                </div>
+                <button
+                  aria-label="Đóng bảng xếp hạng"
+                  className={iconButton}
+                  onClick={() => setShowCardRanking(false)}
+                  type="button"
+                >
+                  <X aria-hidden="true" size={20} />
+                </button>
               </div>
-              <button
-                aria-label="Đóng bảng xếp hạng"
-                className={iconButton}
-                onClick={() => setShowCardRanking(false)}
-                type="button"
-              >
-                <X aria-hidden="true" size={20} />
-              </button>
             </div>
 
-            {cardRankings.length > 0 ? (
-              <ol className="space-y-2">
-                {cardRankings.map((ranking, index) => (
-                  <li
-                    className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3"
-                    key={ranking.phone}
-                  >
-                    <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                        index === 0 ? "bg-[#FEF3C7] text-[#92400E]" : "bg-white text-[#334155]"
-                      }`}
+            <div className="overflow-y-auto p-4 sm:p-5">
+              {cardRankings.length > 0 ? (
+                <ol className="space-y-2">
+                  {cardRankings.map((ranking, index) => (
+                    <li
+                      className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3"
+                      key={ranking.phone}
                     >
-                      {String(index + 1).padStart(2, "0")}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-base font-bold text-[#0F172A]">
-                        {ranking.fullName || "Khách chưa tên"}
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                          index === 0 ? "bg-[#FEF3C7] text-[#92400E]" : "bg-white text-[#334155]"
+                        }`}
+                      >
+                        {String(index + 1).padStart(2, "0")}
                       </div>
-                      <div className="truncate text-sm text-[#64748B]">{ranking.phone || "Không có SĐT"}</div>
-                    </div>
-                    <div className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold text-[#111827] shadow-sm">
-                      {ranking.totalCards} thẻ
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="rounded-md border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 py-6 text-center text-sm font-semibold text-[#64748B]">
-                Chưa có khách đang gửi thẻ.
-              </div>
-            )}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-base font-bold text-[#0F172A]">
+                          {ranking.fullName || "Khách chưa tên"}
+                        </div>
+                        <div className="truncate text-sm text-[#64748B]">{ranking.phone || "Không có SĐT"}</div>
+                      </div>
+                      <div className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold text-[#111827] shadow-sm">
+                        {ranking.totalCards} thẻ
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="rounded-md border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 py-6 text-center text-sm font-semibold text-[#64748B]">
+                  Chưa có khách đang gửi thẻ.
+                </div>
+              )}
+            </div>
           </section>
         </div>
       ) : null}
