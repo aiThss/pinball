@@ -108,12 +108,10 @@ export default function InstallNudge() {
             {isZalo ? <Ellipsis aria-hidden="true" size={20} /> : <Share2 aria-hidden="true" size={20} />}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold">
-              {isZalo ? "Đang mở trong Zalo" : `Cài ${APP_SHORT_NAME} lên màn hình chính`}
-            </h2>
+            <h2 className="text-base font-bold">Cài {APP_SHORT_NAME} lên màn hình chính</h2>
             <p className="mt-1 text-sm leading-6 text-[#475569]">
               {isZalo
-                ? "Bấm vào dấu 3 chấm ở góc phải trên cùng, rồi chọn Mở bằng Safari."
+                ? "Đang mở trong Zalo. Để cài app và hiện logo đúng, bấm vào dấu 3 chấm ở góc phải trên cùng rồi chọn Mở bằng Safari."
                 : "Trên Safari, bấm Chia sẻ rồi chọn Thêm vào Màn hình chính."}
             </p>
           </div>

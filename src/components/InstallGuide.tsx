@@ -73,7 +73,7 @@ const androidSteps = [
 const zaloSteps = [
   {
     icon: Ellipsis,
-    text: 'Bấm vào dấu 3 chấm ở góc phải trên cùng, rồi chọn "Mở bằng Safari".',
+    text: 'Để cài app và hiện logo đúng, bấm vào dấu 3 chấm ở góc phải trên cùng rồi chọn "Mở bằng Safari".',
   },
 ];
 
@@ -176,7 +176,7 @@ export default function InstallGuide() {
 
             {isZalo ? (
               <div className="mt-6 rounded-lg border border-[#FACC15]/50 bg-[#422006] px-4 py-3 text-sm font-semibold leading-6 text-[#FEF3C7]">
-                Đang mở trong Zalo: bấm vào dấu 3 chấm ở góc phải trên cùng và chọn Mở bằng Safari.
+                Đang mở trong Zalo. Để cài app lên màn hình chính và hiện logo đúng, bấm vào dấu 3 chấm ở góc phải trên cùng rồi chọn Mở bằng Safari.
               </div>
             ) : isIOS ? (
               <div className="mt-6 rounded-lg border border-[#22D3EE]/40 bg-[#083344] px-4 py-3 text-sm font-semibold leading-6 text-[#CFFAFE]">
@@ -207,7 +207,7 @@ export default function InstallGuide() {
           {isZalo ? (
             <GuideSection
               icon={<Ellipsis aria-hidden="true" size={22} />}
-              title="Đang mở trong Zalo"
+              title="Cài app từ Zalo"
               steps={zaloSteps}
               accent="bg-[#FACC15] text-[#422006]"
             />
