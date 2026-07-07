@@ -3,6 +3,7 @@ import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api"
 import { verifyAdmin } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
+import { sendPushToAll } from "@/lib/webpush";
 import {
   ballActions,
   cardActions,
@@ -380,6 +381,24 @@ export async function POST(request: NextRequest) {
     if (isTakingBalls && data.balls > 0) {
       await deductActiveBalls(data.phone, data.balls, data.actorName);
     }
+
+    // Build compact push notification body
+    const actionParts: string[] = [];
+    if (data.cards > 0) {
+      actionParts.push(`${isTakingCards ? "Lấy" : "Gửi"} ${data.cards} thẻ`);
+    }
+    if (data.balls > 0) {
+      actionParts.push(`${isTakingBalls ? "Lấy" : "Gửi"} ${data.balls} bi`);
+    }
+    const shortName = data.fullName.split(" ").slice(-2).join(" ");
+    const pushBody = `${shortName} · ${actionParts.join(" + ")} · ${data.actorName} lúc ${depositTime}`;
+
+    // Fire-and-forget — không block response
+    void sendPushToAll({
+      title: "Ký gửi PINBALL",
+      body: pushBody,
+      url: "/",
+    });
 
     return NextResponse.json({ deposit: serializeDeposit(deposit) }, { status: 201 });
   } catch (error) {

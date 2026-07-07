@@ -4,6 +4,8 @@ import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "
 import Link from "next/link";
 import type { Cell, Sheet, SheetData } from "write-excel-file/browser";
 import {
+  Bell,
+  BellOff,
   CalendarDays,
   Clock3,
   Coins,
@@ -382,6 +384,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [filterLookup, setFilterLookup] = useState<DepositLookup | null>(null);
   const [filterLookupLoading, setFilterLookupLoading] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
+  const [pushLoading, setPushLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     fullName: "",
     phone: "",
@@ -391,6 +395,66 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     balls: "0",
     status: "Đang gửi" as Status,
   });
+
+  // Check initial push subscription state
+  useEffect(() => {
+    const timeoutId = window.setTimeout(async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setPushEnabled(false);
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setPushEnabled(!!sub);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  async function togglePushNotification() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    setPushLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+
+      if (existing) {
+        // Unsubscribe
+        await existing.unsubscribe();
+        await fetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: existing.endpoint }),
+        });
+        setPushEnabled(false);
+      } else {
+        // Subscribe
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+
+        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!vapidPublicKey) return;
+
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: vapidPublicKey,
+        });
+        const json = sub.toJSON();
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: json.endpoint,
+            keys: json.keys,
+          }),
+        });
+        setPushEnabled(true);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setPushLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (isAdmin) {
@@ -1059,6 +1123,21 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               <Download aria-hidden="true" size={17} />
               <span className="hidden sm:inline">Cài app</span>
             </Link>
+            {/* Bell: push notifications */}
+            {pushEnabled !== null ? (
+              <button
+                aria-label={pushEnabled ? "Tắt thông báo" : "Bật thông báo"}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7] disabled:opacity-50"
+                disabled={pushLoading}
+                onClick={() => void togglePushNotification()}
+                title={pushEnabled ? "Tắt thông báo" : "Bật thông báo"}
+                type="button"
+              >
+                {pushEnabled
+                  ? <BellOff aria-hidden="true" size={17} />
+                  : <Bell aria-hidden="true" size={17} />}
+              </button>
+            ) : null}
             <button
               aria-label={isAdmin ? "Đăng xuất Admin" : "Đổi nhân viên"}
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]"
