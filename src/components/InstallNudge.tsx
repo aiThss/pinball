@@ -106,7 +106,7 @@ export default function InstallNudge() {
             </h2>
             <p className="mt-1 text-sm leading-6 text-[#475569]">
               {isZalo
-                ? "Zalo không cài PWA ổn định. Hãy mở link bằng Safari trên iPhone hoặc Chrome trên Android."
+                ? "Zalo không cài PWA ổn định. Hãy sao chép liên kết, mở Safari trên iPhone hoặc Chrome trên Android, rồi dán link để cài."
                 : "Trên Safari, bấm Chia sẻ rồi chọn Thêm vào Màn hình chính."}
             </p>
           </div>

@@ -58,9 +58,24 @@ const desktopSteps = [
   "Xác nhận Cài đặt để app xuất hiện như ứng dụng desktop.",
 ];
 
+const zaloIosSteps = [
+  "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
+  "Mở Safari trên iPhone hoặc iPad.",
+  "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
+  "Nhấn nút Chia sẻ, chọn Thêm vào Màn hình chính, rồi bấm Thêm.",
+];
+
+const zaloAndroidSteps = [
+  "Trong Zalo, bấm menu chia sẻ rồi chọn Sao chép liên kết.",
+  "Mở Chrome trên Android.",
+  "Dán link vừa sao chép vào thanh địa chỉ và mở trang.",
+  "Nhấn menu ba chấm, chọn Cài đặt ứng dụng hoặc Thêm vào màn hình chính.",
+];
+
 export default function InstallGuide() {
   const router = useRouter();
   const [isIOS, setIsIOS] = useState(false);
+  const [isZalo, setIsZalo] = useState(false);
   const [canPrompt, setCanPrompt] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -68,6 +83,7 @@ export default function InstallGuide() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setIsIOS(isIOSDevice());
+      setIsZalo(/Zalo/i.test(navigator.userAgent));
 
       if (isStandaloneMode()) {
         router.replace("/");
@@ -115,6 +131,9 @@ export default function InstallGuide() {
     }
   }
 
+  const iosInstallSteps = isZalo ? zaloIosSteps : iosSteps;
+  const androidInstallSteps = isZalo ? zaloAndroidSteps : androidSteps;
+
   return (
     <main className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A]">
       <header className="border-b border-[#E5E7EB] bg-white">
@@ -156,7 +175,11 @@ export default function InstallGuide() {
               </div>
             </div>
 
-            {isIOS ? (
+            {isZalo ? (
+              <div className="mt-5 rounded-md border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-semibold text-[#92400E]">
+                Đang mở trong Zalo: hãy sao chép liên kết rồi dán vào Safari hoặc Chrome để cài app đúng logo.
+              </div>
+            ) : isIOS ? (
               <div className="mt-5 rounded-md border border-[#BAE6FD] bg-[#F0F9FF] px-4 py-3 text-sm font-semibold text-[#075985]">
                 iPhone/iPad cần cài bằng Safari để hiện đúng tùy chọn Thêm vào Màn hình chính.
               </div>
@@ -185,14 +208,14 @@ export default function InstallGuide() {
           <GuideSection
             icon={<Apple aria-hidden="true" size={22} />}
             title="iPhone hoặc iPad"
-            steps={iosSteps}
+            steps={iosInstallSteps}
             accent="bg-[#111827] text-white"
           />
 
           <GuideSection
             icon={<MonitorSmartphone aria-hidden="true" size={22} />}
             title="Android Chrome"
-            steps={androidSteps}
+            steps={androidInstallSteps}
             accent="bg-[#DC2626] text-white"
           />
 
