@@ -1154,7 +1154,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             </div>
           ) : null}
 
-          <section className={`grid gap-3 ${isAdmin ? "grid-cols-2 lg:grid-cols-4 xl:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}>
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] sm:h-14 sm:w-14">
@@ -1201,28 +1201,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-[#92400E] sm:text-sm">Xếp hạng</div>
-                  <div className="text-2xl font-bold text-[#111827] sm:text-3xl">
-                    {topCardRanking ? `${topCardRanking.totalCards} thẻ` : "0 thẻ"}
-                  </div>
-                  <div className="mt-1 truncate text-xs font-semibold text-[#92400E]">
-                    {topCardRanking ? topCardRanking.fullName : "Chưa có dữ liệu"}
+                  <div className="truncate text-2xl font-bold text-[#111827] sm:text-3xl">
+                    {topCardRanking ? `#1: ${topCardRanking.fullName}` : "Chưa có"}
                   </div>
                 </div>
               </div>
             </button>
-            {isAdmin ? (
-              <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] sm:h-14 sm:w-14">
-                    <Clock3 aria-hidden="true" size={22} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-[#334155] sm:text-sm">Hôm nay</div>
-                    <div className="text-2xl font-bold sm:text-3xl">{todayDeposits}</div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </section>
 
           <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
