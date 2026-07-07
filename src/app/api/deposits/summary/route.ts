@@ -7,19 +7,26 @@ import { CustomerDeposit } from "@/models/CustomerDeposit";
 
 const withdrawCardAction = cardActions[1];
 const withdrawBallAction = ballActions[1];
+const activeDepositStatus = depositStatuses[0];
+
+type CardRanking = {
+  fullName: string;
+  phone: string;
+  totalCards: number;
+};
 
 export async function GET() {
   try {
     await connectMongo();
     const today = getHanoiNow().date;
 
-    const [activeSummaries, todayDeposits, historySummaries] = await Promise.all([
+    const [activeSummaries, todayDeposits, historySummaries, cardRankings] = await Promise.all([
       CustomerDeposit.aggregate<{
         activeDeposits: number;
         totalCards: number;
         totalBalls: number;
       }>([
-        { $match: { status: depositStatuses[0] } },
+        { $match: { status: activeDepositStatus } },
         {
           $group: {
             _id: null,
@@ -46,6 +53,35 @@ export async function GET() {
           },
         },
       ]),
+      CustomerDeposit.aggregate<CardRanking>([
+        {
+          $match: {
+            status: activeDepositStatus,
+            cardAction: { $ne: withdrawCardAction },
+            cards: { $gt: 0 },
+          },
+        },
+        { $sort: { updatedAt: -1, createdAt: -1 } },
+        {
+          $group: {
+            _id: "$phone",
+            fullName: { $first: "$fullName" },
+            totalCards: { $sum: "$cards" },
+            latestUpdatedAt: { $max: "$updatedAt" },
+          },
+        },
+        { $match: { totalCards: { $gt: 0 } } },
+        { $sort: { totalCards: -1, latestUpdatedAt: -1, fullName: 1 } },
+        { $limit: 10 },
+        {
+          $project: {
+            _id: 0,
+            fullName: 1,
+            phone: "$_id",
+            totalCards: 1,
+          },
+        },
+      ]),
     ]);
     const activeSummary = activeSummaries[0];
     const historySummary = historySummaries[0];
@@ -56,6 +92,7 @@ export async function GET() {
       totalBalls: activeSummary?.totalBalls ?? 0,
       todayDeposits,
       historyEntries: historySummary?.historyEntries ?? 0,
+      cardRankings,
     });
   } catch (error) {
     return jsonError(parseError(error), 500);

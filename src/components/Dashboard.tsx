@@ -18,6 +18,7 @@ import {
   Search,
   Ticket,
   Trash2,
+  Trophy,
   UserRound,
   X,
 } from "lucide-react";
@@ -77,12 +78,19 @@ type DepositListResponse = {
   hasMore: boolean;
 };
 
+type CardRanking = {
+  fullName: string;
+  phone: string;
+  totalCards: number;
+};
+
 type DepositSummary = {
   activeDeposits: number;
   totalCards: number;
   totalBalls: number;
   todayDeposits: number;
   historyEntries: number;
+  cardRankings: CardRanking[];
 };
 
 type DepositSuggestion = {
@@ -123,6 +131,7 @@ const emptySummary: DepositSummary = {
   totalBalls: 0,
   todayDeposits: 0,
   historyEntries: 0,
+  cardRankings: [],
 };
 const depositPageLimit = 100;
 const exportPageLimit = 300;
@@ -365,6 +374,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   });
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
+  const [showCardRanking, setShowCardRanking] = useState(false);
   const [filters, setFilters] = useState<DepositFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<DepositFilters>(emptyFilters);
   const [depositForm, setDepositForm] = useState(() => getDefaultDepositForm());
@@ -422,6 +432,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }, [isAdmin]);
 
   const { activeDeposits, historyEntries, todayDeposits, totalBalls, totalCards } = summary;
+  const cardRankings = summary.cardRankings ?? [];
+  const topCardRanking = cardRankings[0] ?? null;
   const normalizedDepositPhone = normalizePhoneInput(depositForm.phone);
   const normalizedFilterPhone = normalizePhoneInput(filters.phone);
   const activeDepositLookup =
@@ -1142,7 +1154,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             </div>
           ) : null}
 
-          <section className={`grid gap-3 ${isAdmin ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 md:grid-cols-3"}`}>
+          <section className={`grid gap-3 ${isAdmin ? "grid-cols-2 lg:grid-cols-4 xl:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}>
             <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] sm:h-14 sm:w-14">
@@ -1176,6 +1188,28 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </div>
               </div>
             </div>
+            <button
+              aria-expanded={showCardRanking}
+              aria-haspopup="dialog"
+              className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-4 text-left shadow-sm transition hover:border-[#FBBF24] hover:bg-[#FEF3C7] focus:outline-none focus:ring-2 focus:ring-[#F59E0B]/30 sm:p-5"
+              onClick={() => setShowCardRanking(true)}
+              type="button"
+            >
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] text-[#92400E] sm:h-14 sm:w-14">
+                  <Trophy aria-hidden="true" size={22} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-[#92400E] sm:text-sm">Xếp hạng</div>
+                  <div className="text-2xl font-bold text-[#111827] sm:text-3xl">
+                    {topCardRanking ? `${topCardRanking.totalCards} thẻ` : "0 thẻ"}
+                  </div>
+                  <div className="mt-1 truncate text-xs font-semibold text-[#92400E]">
+                    {topCardRanking ? topCardRanking.fullName : "Chưa có dữ liệu"}
+                  </div>
+                </div>
+              </div>
+            </button>
             {isAdmin ? (
               <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
                 <div className="flex items-center gap-3 sm:gap-4">
@@ -1845,6 +1879,71 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           </section>
         </section>
       </div>
+
+      {showCardRanking ? (
+        <div
+          aria-labelledby="card-ranking-title"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#0F172A]/50 px-3 py-0 sm:items-center sm:px-4 sm:py-6"
+          role="dialog"
+        >
+          <section className="max-h-[92svh] w-full max-w-lg overflow-y-auto rounded-t-lg border border-[#E5E7EB] bg-white p-4 shadow-xl sm:rounded-lg sm:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] text-[#92400E]">
+                  <Trophy aria-hidden="true" size={22} />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-xl font-bold" id="card-ranking-title">
+                    Xếp hạng thẻ
+                  </h2>
+                  <p className="text-sm text-[#64748B]">Top khách đang gửi nhiều thẻ nhất</p>
+                </div>
+              </div>
+              <button
+                aria-label="Đóng bảng xếp hạng"
+                className={iconButton}
+                onClick={() => setShowCardRanking(false)}
+                type="button"
+              >
+                <X aria-hidden="true" size={20} />
+              </button>
+            </div>
+
+            {cardRankings.length > 0 ? (
+              <ol className="space-y-2">
+                {cardRankings.map((ranking, index) => (
+                  <li
+                    className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3"
+                    key={ranking.phone}
+                  >
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        index === 0 ? "bg-[#FEF3C7] text-[#92400E]" : "bg-white text-[#334155]"
+                      }`}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-base font-bold text-[#0F172A]">
+                        {ranking.fullName || "Khách chưa tên"}
+                      </div>
+                      <div className="truncate text-sm text-[#64748B]">{ranking.phone || "Không có SĐT"}</div>
+                    </div>
+                    <div className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold text-[#111827] shadow-sm">
+                      {ranking.totalCards} thẻ
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="rounded-md border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 py-6 text-center text-sm font-semibold text-[#64748B]">
+                Chưa có khách đang gửi thẻ.
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
 
       {editingDeposit ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0F172A]/50 px-3 py-0 sm:items-center sm:px-4 sm:py-6">
