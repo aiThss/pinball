@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { buildTotalText } from "@/lib/time";
 import { ballActions, cardActions } from "@/lib/validation";
 
 export function jsonError(message: string, status = 400) {
@@ -22,6 +23,17 @@ export function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function normalizeTotalText(value: unknown, cards: unknown, balls: unknown) {
+  const text = typeof value === "string" ? value.trim() : "";
+  const match = text.match(/:\s*(-?\d+)\s*\|\s*[^:|]+:\s*(-?\d+)/u);
+
+  if (match) {
+    return buildTotalText(Number(match[1]), Number(match[2]));
+  }
+
+  return buildTotalText(Number(cards) || 0, Number(balls) || 0);
+}
+
 export function serializeDeposit(deposit: {
   toObject: () => Record<string, unknown>;
 }, overrides: Partial<{ totalText: string }> = {}) {
@@ -38,7 +50,7 @@ export function serializeDeposit(deposit: {
     ballAction: value.ballAction ?? ballActions[0],
     cards: value.cards,
     balls: value.balls,
-    totalText: overrides.totalText ?? value.totalText,
+    totalText: overrides.totalText ?? normalizeTotalText(value.totalText, value.cards, value.balls),
     status: value.status,
     createdByName: value.createdByName,
     updatedByName: value.updatedByName,

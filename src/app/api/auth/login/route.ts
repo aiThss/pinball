@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jsonError } from "@/lib/api";
-import { getAdminToken } from "@/lib/auth";
+import { getAdminPassword, getAdminToken } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +12,11 @@ export async function POST(request: NextRequest) {
       return jsonError("Vui lòng nhập mật khẩu.", 400);
     }
 
-    const expectedPassword = process.env.ADMIN_PASSWORD || "admin123";
+    const expectedPassword = getAdminPassword();
+
+    if (!expectedPassword) {
+      return jsonError("Admin chưa được cấu hình mật khẩu.", 401);
+    }
 
     if (password !== expectedPassword) {
       return jsonError("Mật khẩu không chính xác.", 401);

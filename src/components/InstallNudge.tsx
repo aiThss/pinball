@@ -99,7 +99,11 @@ export default function InstallNudge() {
   }, []);
 
   useEffect(() => {
-    setIsAndroid(isAndroidDevice());
+    const timeoutId = window.setTimeout(() => {
+      setIsAndroid(isAndroidDevice());
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   useEffect(() => {

@@ -4,8 +4,6 @@ import { Fragment, FormEvent, useCallback, useEffect, useMemo, useRef, useState 
 import Link from "next/link";
 import type { Cell, Sheet, SheetData } from "write-excel-file/browser";
 import {
-  Bell,
-  BellOff,
   CalendarDays,
   Clock3,
   Coins,
@@ -17,7 +15,6 @@ import {
   Plus,
   RefreshCw,
   Save,
-  Search,
   Ticket,
   Trash2,
   Trophy,
@@ -95,6 +92,32 @@ type DepositSummary = {
   cardRankings: CardRanking[];
 };
 
+type AdminDateSummary = {
+  totalRecords: number;
+  uniqueCustomers: number;
+  cardsDeposited: number;
+  ballsDeposited: number;
+  cardsWithdrawn: number;
+  ballsWithdrawn: number;
+  recordsUpdated: number;
+};
+
+type RecentStaffUpdate = {
+  id: string;
+  depositId: string;
+  fullName: string;
+  phone: string;
+  updatedByName: string;
+  updatedAt: string;
+  content: string;
+};
+
+type AdminDashboardResponse = {
+  date: string;
+  dateSummary: AdminDateSummary;
+  recentUpdates: RecentStaffUpdate[];
+};
+
 type DepositSuggestion = {
   phone: string;
   fullName: string;
@@ -119,6 +142,7 @@ const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi qu�
 const cardActions: CardAction[] = ["Gửi thẻ", "Lấy thẻ"];
 const ballActions: BallAction[] = ["Gửi bi", "Lấy bi"];
 const staffStorageKey = "pinball_staff_name";
+const staffAccessStorageKey = "pinball_staff_access_key";
 const appTitle = "Ký gửi PINBALL";
 const adminDisplayName = "Danh Thai";
 const emptyFilters: DepositFilters = {
@@ -134,6 +158,15 @@ const emptySummary: DepositSummary = {
   todayDeposits: 0,
   historyEntries: 0,
   cardRankings: [],
+};
+const emptyAdminDateSummary: AdminDateSummary = {
+  totalRecords: 0,
+  uniqueCustomers: 0,
+  cardsDeposited: 0,
+  ballsDeposited: 0,
+  cardsWithdrawn: 0,
+  ballsWithdrawn: 0,
+  recordsUpdated: 0,
 };
 const depositPageLimit = 100;
 const exportPageLimit = 300;
@@ -310,19 +343,26 @@ function lookupFromSuggestion(suggestion: DepositSuggestion, suggestions: Deposi
   };
 }
 
-function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
+function StaffGate({ onEnter }: { onEnter: (name: string, accessKey: string) => void }) {
   const [name, setName] = useState("");
+  const [accessKey, setAccessKey] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = name.trim();
+    const key = accessKey.trim();
 
     if (!value) {
       return;
     }
 
     localStorage.setItem(staffStorageKey, value);
-    onEnter(value);
+    if (key) {
+      localStorage.setItem(staffAccessStorageKey, key);
+    } else {
+      localStorage.removeItem(staffAccessStorageKey);
+    }
+    onEnter(value, key);
   }
 
   return (
@@ -350,6 +390,17 @@ function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
               required
             />
           </label>
+          <label>
+            <span className={labelClass}>Mã truy cập nhân viên</span>
+            <input
+              className={inputClass}
+              autoComplete="current-password"
+              placeholder="Nhập mã được cấp"
+              type="password"
+              value={accessKey}
+              onChange={(event) => setAccessKey(event.target.value)}
+            />
+          </label>
           <button className={`${primaryButton} w-full`} type="submit">
             Tiếp tục
           </button>
@@ -362,12 +413,17 @@ function StaffGate({ onEnter }: { onEnter: (name: string) => void }) {
 export default function Dashboard({ mode }: { mode: Mode }) {
   const isAdmin = mode === "admin";
   const [staffName, setStaffName] = useState(isAdmin ? adminDisplayName : "");
+  const [staffAccessKey, setStaffAccessKey] = useState("");
   const [clock, setClock] = useState<ReturnType<typeof getHanoiParts> | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [summary, setSummary] = useState<DepositSummary>(emptySummary);
+  const [adminDashboardDate, setAdminDashboardDate] = useState(() => getHanoiNow().date);
+  const [adminDateSummary, setAdminDateSummary] = useState<AdminDateSummary>(emptyAdminDateSummary);
+  const [recentStaffUpdates, setRecentStaffUpdates] = useState<RecentStaffUpdate[]>([]);
+  const [adminDashboardLoading, setAdminDashboardLoading] = useState(false);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -390,8 +446,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [quickQuery, setQuickQuery] = useState("");
   const [quickLookupResults, setQuickLookupResults] = useState<DepositSuggestion[]>([]);
   const [quickLookupLoading, setQuickLookupLoading] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
-  const [pushLoading, setPushLoading] = useState(false);
   const createFormRef = useRef<HTMLElement>(null);
   const [editForm, setEditForm] = useState({
     fullName: "",
@@ -403,66 +457,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     status: "Đang gửi" as Status,
   });
 
-  // Check initial push subscription state
-  useEffect(() => {
-    const timeoutId = window.setTimeout(async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        setPushEnabled(false);
-        return;
-      }
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      setPushEnabled(!!sub);
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  async function togglePushNotification() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    setPushLoading(true);
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const existing = await reg.pushManager.getSubscription();
-
-      if (existing) {
-        // Unsubscribe
-        await existing.unsubscribe();
-        await fetch('/api/push/subscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: existing.endpoint }),
-        });
-        setPushEnabled(false);
-      } else {
-        // Subscribe
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
-
-        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (!vapidPublicKey) return;
-
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: vapidPublicKey,
-        });
-        const json = sub.toJSON();
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            endpoint: json.endpoint,
-            keys: json.keys,
-          }),
-        });
-        setPushEnabled(true);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setPushLoading(false);
-    }
-  }
-
   useEffect(() => {
     if (isAdmin) {
       return;
@@ -470,6 +464,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
     const timeoutId = window.setTimeout(() => {
       setStaffName(localStorage.getItem(staffStorageKey) ?? "");
+      setStaffAccessKey(localStorage.getItem(staffAccessStorageKey) ?? "");
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
@@ -502,7 +497,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     return () => window.clearTimeout(timeoutId);
   }, [isAdmin]);
 
-  const { activeDeposits, historyEntries, todayDeposits, totalBalls, totalCards } = summary;
+  const { activeDeposits, totalBalls, totalCards } = summary;
   const cardRankings = summary.cardRankings ?? [];
   const topCardRanking = cardRankings[0] ?? null;
   const normalizedDepositPhone = normalizePhoneInput(depositForm.phone);
@@ -547,6 +542,25 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       showNotice("error", error instanceof Error ? error.message : "Không tải được tổng.");
     }
   }, [showNotice]);
+
+  const loadAdminDashboard = useCallback(async (date: string) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setAdminDashboardLoading(true);
+
+    try {
+      const params = new URLSearchParams({ date });
+      const data = await apiRequest<AdminDashboardResponse>(`/api/admin/dashboard?${params.toString()}`);
+      setAdminDateSummary(data.dateSummary);
+      setRecentStaffUpdates(data.recentUpdates);
+    } catch (error) {
+      showNotice("error", error instanceof Error ? error.message : "Không tải được bảng admin.");
+    } finally {
+      setAdminDashboardLoading(false);
+    }
+  }, [isAdmin, showNotice]);
 
   const buildDepositQuery = useCallback(
     (filterValues: DepositFilters, pageToLoad: number, limit: number) => {
@@ -632,6 +646,18 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }, [loadDeposits, loadSummary, staffName]);
 
   useEffect(() => {
+    if (!staffName || !isAdmin) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadAdminDashboard(adminDashboardDate);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [adminDashboardDate, isAdmin, loadAdminDashboard, staffName]);
+
+  useEffect(() => {
     if (normalizedDepositPhone.length < minPhoneSuggestionDigits) {
       const timeoutId = window.setTimeout(() => {
         setDepositLookup(null);
@@ -694,9 +720,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     const hasDigits = digits.length >= 3;
 
     if (!hasText && !hasDigits) {
-      setHistoryQueryResults([]);
-      setHistoryQueryLoading(false);
-      return;
+      const timeoutId = window.setTimeout(() => {
+        setHistoryQueryResults([]);
+        setHistoryQueryLoading(false);
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
 
     const controller = new AbortController();
@@ -737,9 +766,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     const hasDigits = digits.length >= 3;
 
     if (!hasText && !hasDigits) {
-      setQuickLookupResults([]);
-      setQuickLookupLoading(false);
-      return;
+      const timeoutId = window.setTimeout(() => {
+        setQuickLookupResults([]);
+        setQuickLookupLoading(false);
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
 
     const controller = new AbortController();
@@ -792,10 +824,34 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   function handleReloadDeposits() {
     void loadSummary();
     void loadDeposits(appliedFilters, 1);
+    if (isAdmin) {
+      void loadAdminDashboard(adminDashboardDate);
+    }
   }
 
   function handleLoadMore() {
     void loadDeposits(appliedFilters, pagination.page + 1, true);
+  }
+
+  function getJsonWriteHeaders() {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (!isAdmin && staffAccessKey) {
+      headers["x-staff-access-key"] = staffAccessKey;
+    }
+
+    return headers;
+  }
+
+  function applyAdminDateFilter(date: string) {
+    setAdminDashboardDate(date);
+
+    const next = { ...filters, date };
+    setFilters(next);
+    setAppliedFilters(next);
+    void loadDeposits(next, 1);
   }
 
   function selectDepositSuggestion(suggestion: DepositSuggestion) {
@@ -839,7 +895,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }
 
   if (!staffName) {
-    return <StaffGate onEnter={setStaffName} />;
+    return (
+      <StaffGate
+        onEnter={(name, accessKey) => {
+          setStaffName(name);
+          setStaffAccessKey(accessKey);
+        }}
+      />
+    );
   }
 
   async function handleCreateDeposit(event: FormEvent<HTMLFormElement>) {
@@ -863,9 +926,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       };
       const data = await apiRequest<{ deposit: Deposit }>("/api/deposits", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getJsonWriteHeaders(),
         body: JSON.stringify(payload),
       });
 
@@ -882,6 +943,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       setDepositLookup(null);
       void loadSummary();
       void loadDeposits(appliedFilters, 1);
+      if (isAdmin) {
+        void loadAdminDashboard(adminDashboardDate);
+      }
       showNotice("success", "Đã lưu chi tiết lần gửi mới.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không lưu được bản ghi.");
@@ -929,9 +993,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         `/api/deposits/${editingDeposit.id}`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getJsonWriteHeaders(),
           body: JSON.stringify(payload),
         },
       );
@@ -942,6 +1004,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       setEditingDeposit(null);
       void loadSummary();
       void loadDeposits(appliedFilters, 1);
+      if (isAdmin) {
+        void loadAdminDashboard(adminDashboardDate);
+      }
       showNotice("success", "Đã cập nhật bản ghi.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không cập nhật được.");
@@ -962,6 +1027,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       setDeposits((current) => current.filter((item) => item.id !== deposit.id));
       void loadSummary();
       void loadDeposits(appliedFilters, 1);
+      if (isAdmin) {
+        void loadAdminDashboard(adminDashboardDate);
+      }
       showNotice("success", "Đã xóa bản ghi.");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không xóa được.");
@@ -970,7 +1038,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
   function switchStaff() {
     localStorage.removeItem(staffStorageKey);
+    localStorage.removeItem(staffAccessStorageKey);
     setStaffName("");
+    setStaffAccessKey("");
   }
 
   async function handleAdminLogout() {
@@ -1050,8 +1120,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           header("Thẻ"),
           header("Bi"),
           header("Tổng"),
-          header("Tùy chọn thẻ"),
-          header("Tùy chọn bi"),
+          header("Gửi/Lấy thẻ"),
+          header("Gửi/Lấy bi"),
           header("Trạng thái"),
           header("Nhân viên tạo"),
           header("Nhân viên sửa"),
@@ -1197,21 +1267,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               <Download aria-hidden="true" size={17} />
               <span className="hidden sm:inline">Cài app</span>
             </Link>
-            {/* Bell: push notifications */}
-            {pushEnabled !== null ? (
-              <button
-                aria-label={pushEnabled ? "Tắt thông báo" : "Bật thông báo"}
-                className="hidden"
-                disabled={pushLoading}
-                onClick={() => void togglePushNotification()}
-                title={pushEnabled ? "Tắt thông báo" : "Bật thông báo"}
-                type="button"
-              >
-                {pushEnabled
-                  ? <BellOff aria-hidden="true" size={17} />
-                  : <Bell aria-hidden="true" size={17} />}
-              </button>
-            ) : null}
             <button
               aria-label={isAdmin ? "Đăng xuất Admin" : "Đổi nhân viên"}
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7]"
@@ -1262,27 +1317,86 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
           {isAdmin ? (
             <section className="rounded-lg border border-[#CBD5E1] bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <div className="mb-2 inline-flex rounded-full bg-[#111827] px-3 py-1 text-xs font-bold uppercase text-white">
                     Trang admin
                   </div>
-                  <h2 className="text-xl font-bold">Bảng kiểm tra chi tiết</h2>
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">
-                    Dùng để đối soát ngày giờ gửi, nhân viên thao tác, lịch sử cập nhật và xuất
-                    Excel. Trang nhân viên chỉ giữ luồng nhập nhanh.
+                  <h2 className="text-xl font-bold">Đối soát theo ngày</h2>
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    {adminDashboardLoading ? "Đang tải dữ liệu..." : `Ngày ${formatDate(adminDashboardDate)}`}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm sm:min-w-[280px]">
-                  <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                    <div className="text-xs font-semibold text-[#64748B]">Bản ghi hôm nay</div>
-                    <div className="mt-1 text-2xl font-bold">{todayDeposits}</div>
-                  </div>
-                  <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                    <div className="text-xs font-semibold text-[#64748B]">Dòng lịch sử</div>
-                    <div className="mt-1 text-2xl font-bold">{historyEntries}</div>
-                  </div>
+                <label className="w-full sm:max-w-[220px]">
+                  <span className={labelClass}>Ngày đối soát</span>
+                  <input
+                    className={inputClass}
+                    type="date"
+                    value={adminDashboardDate}
+                    onChange={(event) => applyAdminDateFilter(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4 xl:grid-cols-7">
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                  <div className="text-xs font-semibold text-[#64748B]">Bản ghi</div>
+                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.totalRecords}</div>
                 </div>
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                  <div className="text-xs font-semibold text-[#64748B]">Khách</div>
+                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.uniqueCustomers}</div>
+                </div>
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                  <div className="text-xs font-semibold text-[#64748B]">Thẻ gửi</div>
+                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.cardsDeposited}</div>
+                </div>
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                  <div className="text-xs font-semibold text-[#64748B]">Bi gửi</div>
+                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.ballsDeposited}</div>
+                </div>
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                  <div className="text-xs font-semibold text-[#64748B]">Thẻ lấy</div>
+                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.cardsWithdrawn}</div>
+                </div>
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                  <div className="text-xs font-semibold text-[#64748B]">Bi lấy</div>
+                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.ballsWithdrawn}</div>
+                </div>
+                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                  <div className="text-xs font-semibold text-[#64748B]">Đã cập nhật</div>
+                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.recordsUpdated}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold">Cập nhật bởi nhân viên</h3>
+                  <span className="text-xs font-semibold text-[#64748B]">{recentStaffUpdates.length} mục</span>
+                </div>
+                {recentStaffUpdates.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-[#CBD5E1] bg-white px-3 py-3 text-sm text-[#64748B]">
+                    Chưa có cập nhật gần đây từ nhân viên.
+                  </div>
+                ) : (
+                  <div className="grid gap-2 lg:grid-cols-2">
+                    {recentStaffUpdates.map((update) => (
+                      <article className="rounded-md border border-[#E5E7EB] bg-white px-3 py-2" key={update.id}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-bold text-[#0F172A]">{update.fullName}</div>
+                            <div className="text-xs font-semibold text-[#2563EB]">{update.phone}</div>
+                          </div>
+                          <div className="shrink-0 text-right text-xs text-[#64748B]">
+                            <div className="font-semibold text-[#334155]">{update.updatedByName}</div>
+                            <div>{formatShortDateTime(update.updatedAt)}</div>
+                          </div>
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#334155]">{update.content}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           ) : null}
@@ -1366,11 +1480,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-lg font-bold">{isAdmin ? "Tạo bản ghi mới" : "Bản ghi mới"}</h2>
-                <p className="text-xs text-[#64748B]">
-                  {isAdmin
-                    ? "Chọn ngày giờ gửi khi nhập lại dữ liệu cũ."
-                    : null}
-                </p>
+                {isAdmin ? (
+                  <p className="text-xs text-[#64748B]">Chọn ngày giờ gửi khi nhập lại dữ liệu cũ.</p>
+                ) : null}
               </div>
               {isAdmin ? (
                 <span className="inline-flex w-fit rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-semibold text-[#334155]">
@@ -1715,6 +1827,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                       const next = { ...filters, date: event.target.value };
                       setFilters(next);
                       setAppliedFilters(next);
+                      if (event.target.value) {
+                        setAdminDashboardDate(event.target.value);
+                      }
                       void loadDeposits(next, 1);
                     }}
                   />
@@ -1840,7 +1955,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     <span>
                       Tạo bởi: {actorName(deposit, "created")} lúc {formatShortDateTime(deposit.createdAt)}
                     </span>
-                    {isAdmin ? <span>Sửa: {actorName(deposit, "updated")}</span> : null}
+                    {isAdmin ? (
+                      <span>
+                        Cập nhật bởi: {actorName(deposit, "updated")} lúc {formatShortDateTime(deposit.updatedAt)}
+                      </span>
+                    ) : null}
                   </div>
 
                   <div
@@ -1922,8 +2041,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     <th className="px-5 py-3 text-right">Thẻ</th>
                     <th className="px-5 py-3 text-right">Bi</th>
                     <th className="px-5 py-3">Tổng</th>
-                    <th className="px-5 py-3">Tùy chọn thẻ</th>
-                    <th className="px-5 py-3">Tùy chọn bi</th>
+                    <th className="px-5 py-3">Gửi/Lấy thẻ</th>
+                    <th className="px-5 py-3">Gửi/Lấy bi</th>
                     <th className="px-5 py-3">Trạng thái</th>
                     <th className="px-5 py-3">Nhân viên</th>
                     <th className="px-5 py-3">Thao tác</th>
@@ -1979,13 +2098,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                           </span>
                         </td>
                         <td className="px-5 py-4">
-                          <div>{actorName(deposit, "created")}</div>
+                          <div>Tạo bởi: {actorName(deposit, "created")}</div>
                           <div className="text-xs text-[#64748B]">
                             Lúc {formatShortDateTime(deposit.createdAt)}
                           </div>
                           {isAdmin ? (
                             <div className="text-xs text-[#64748B]">
-                              Sửa: {actorName(deposit, "updated")}
+                              Cập nhật bởi: {actorName(deposit, "updated")} lúc {formatShortDateTime(deposit.updatedAt)}
                             </div>
                           ) : null}
                         </td>

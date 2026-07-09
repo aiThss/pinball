@@ -21,36 +21,35 @@ type PhoneSuggestion = {
 };
 
 function buildQueryFilter(phone: string, rawQ: string) {
-  // Generic q param: may contain digits (phone match), text (name match), or both
-  if (rawQ) {
-    const digits = rawQ.replace(/\D/g, "");
-    const hasDigits = digits.length >= minSuggestionDigits;
-    const hasText = rawQ.replace(/\d/g, "").trim().length >= minSuggestionTextLength;
+  const trimmedQ = rawQ.trim();
 
-    if (hasDigits && hasText) {
-      return {
-        $or: [
-          { phone: { $regex: escapeRegex(digits), $options: "i" } },
-          { fullName: { $regex: escapeRegex(rawQ.trim()), $options: "i" } },
-        ],
-      };
+  if (trimmedQ) {
+    const normalizedPhoneQuery = normalizePhone(trimmedQ);
+    const digits = normalizedPhoneQuery.replace(/\D/g, "");
+    const textQuery = trimmedQ.replace(/[+\d\s().-]+/g, " ").replace(/\s+/g, " ").trim();
+    const conditions: Record<string, unknown>[] = [];
+
+    if (digits.length >= minSuggestionDigits) {
+      conditions.push({ phone: { $regex: escapeRegex(digits), $options: "i" } });
     }
 
-    if (hasDigits) {
-      return { phone: { $regex: escapeRegex(digits), $options: "i" } };
+    if (textQuery.length >= minSuggestionTextLength) {
+      conditions.push({ fullName: { $regex: escapeRegex(textQuery), $options: "i" } });
     }
 
-    if (hasText) {
-      return { fullName: { $regex: escapeRegex(rawQ.trim()), $options: "i" } };
+    if (conditions.length === 1) {
+      return conditions[0];
     }
 
-    // q too short — return no-match sentinel
+    if (conditions.length > 1) {
+      return { $or: conditions };
+    }
+
     return null;
   }
 
-  // Legacy phone param
   if (phone.length >= minSuggestionDigits) {
-    return { phone: { $regex: escapeRegex(phone), $options: "i" } };
+    return { phone: { $regex: escapeRegex(phone.replace(/\D/g, "")), $options: "i" } };
   }
 
   return null;
