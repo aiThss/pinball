@@ -20,6 +20,8 @@ import {
   Trophy,
   UserRound,
   X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { formatDate, getHanoiNow, getHanoiParts } from "@/lib/time";
 
@@ -479,6 +481,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [adminDashboardDate, setAdminDashboardDate] = useState(() => getHanoiNow().date);
   const [adminDateSummary, setAdminDateSummary] = useState<AdminDateSummary>(emptyAdminDateSummary);
   const [recentStaffUpdates, setRecentStaffUpdates] = useState<RecentStaffUpdate[]>([]);
+  const [showRecentStaffUpdates, setShowRecentStaffUpdates] = useState(false);
   const [adminDashboardLoading, setAdminDashboardLoading] = useState(false);
   const [pagination, setPagination] = useState({
     total: 0,
@@ -1426,31 +1429,48 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </div>
 
               <div className="mt-4 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold">Cập nhật bởi nhân viên</h3>
-                  <span className="text-xs font-semibold text-[#64748B]">{recentStaffUpdates.length} mục</span>
-                </div>
-                {recentStaffUpdates.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-[#CBD5E1] bg-white px-3 py-3 text-sm text-[#64748B]">
-                    Chưa có cập nhật gần đây từ nhân viên.
+                <button
+                  type="button"
+                  onClick={() => setShowRecentStaffUpdates(!showRecentStaffUpdates)}
+                  className="flex w-full items-center justify-between gap-2 text-left focus:outline-none"
+                >
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-[#0F172A]">Cập nhật bởi nhân viên</h3>
+                    <span className="rounded bg-[#E2E8F0] px-1.5 py-0.5 text-xs font-semibold text-[#64748B]">
+                      {recentStaffUpdates.length} mục
+                    </span>
                   </div>
-                ) : (
-                  <div className="grid gap-2 lg:grid-cols-2">
-                    {recentStaffUpdates.map((update) => (
-                      <article className="rounded-md border border-[#E5E7EB] bg-white px-3 py-2" key={update.id}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-bold text-[#0F172A]">{update.fullName}</div>
-                            <div className="text-xs font-semibold text-[#2563EB]">{update.phone}</div>
-                          </div>
-                          <div className="shrink-0 text-right text-xs text-[#64748B]">
-                            <div className="font-semibold text-[#334155]">{update.updatedByName}</div>
-                            <div>{formatShortDateTime(update.updatedAt)}</div>
-                          </div>
-                        </div>
-                        <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#334155]">{update.content}</p>
-                      </article>
-                    ))}
+                  {showRecentStaffUpdates ? (
+                    <ChevronUp className="h-4 w-4 text-[#64748B]" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-[#64748B]" />
+                  )}
+                </button>
+                {showRecentStaffUpdates && (
+                  <div className="mt-3">
+                    {recentStaffUpdates.length === 0 ? (
+                      <div className="rounded-md border border-dashed border-[#CBD5E1] bg-white px-3 py-3 text-sm text-[#64748B]">
+                        Chưa có cập nhật gần đây từ nhân viên.
+                      </div>
+                    ) : (
+                      <div className="grid gap-2 lg:grid-cols-2">
+                        {recentStaffUpdates.map((update) => (
+                          <article className="rounded-md border border-[#E5E7EB] bg-white px-3 py-2" key={update.id}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-bold text-[#0F172A]">{update.fullName}</div>
+                                <div className="text-xs font-semibold text-[#2563EB]">{update.phone}</div>
+                              </div>
+                              <div className="shrink-0 text-right text-xs text-[#64748B]">
+                                <div className="font-semibold text-[#334155]">{update.updatedByName}</div>
+                                <div>{formatShortDateTime(update.updatedAt)}</div>
+                              </div>
+                            </div>
+                            <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#334155]">{update.content}</p>
+                          </article>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
