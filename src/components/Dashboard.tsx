@@ -913,6 +913,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         }
       : {
           actorName: staffName,
+          fullName: editForm.fullName,
+          phone: editForm.phone,
           cards: Number(editForm.cards),
           balls: Number(editForm.balls),
           status: editForm.status,
@@ -1165,7 +1167,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 ) : null}
               </div>
               <p className="truncate text-xs text-[#64748B] sm:text-sm">
-                {isAdmin ? "Kiểm tra ngày giờ, thẻ, bi và lịch sử" : "Nhập nhanh gửi giữ tại quầy"}
+                {isAdmin ? "Kiểm tra ngày giờ, thẻ, bi và lịch sử" : `Nhân viên: ${staffName}`}
               </p>
             </div>
           </div>
@@ -1195,7 +1197,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             {pushEnabled !== null ? (
               <button
                 aria-label={pushEnabled ? "Tắt thông báo" : "Bật thông báo"}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] text-[#334155] transition hover:bg-[#EEF2F7] disabled:opacity-50"
+                className="hidden"
                 disabled={pushLoading}
                 onClick={() => void togglePushNotification()}
                 title={pushEnabled ? "Tắt thông báo" : "Bật thông báo"}
@@ -1359,11 +1361,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5" ref={createFormRef}>
             <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-lg font-bold">{isAdmin ? "Tạo bản ghi mới" : "Nhập gửi giữ"}</h2>
+                <h2 className="text-lg font-bold">{isAdmin ? "Tạo bản ghi mới" : "Bản ghi mới"}</h2>
                 <p className="text-xs text-[#64748B]">
                   {isAdmin
                     ? "Chọn ngày giờ gửi khi nhập lại dữ liệu cũ."
-                    : "Ngày và giờ gửi tự đồng bộ theo UTC+7 khi bấm lưu."}
+                    : null}
                 </p>
               </div>
               {isAdmin ? (
@@ -1401,15 +1403,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </div>
             </div>
 
-            <div className="mb-4 flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[#334155] shadow-sm">
-                <UserRound aria-hidden="true" size={18} />
-              </div>
-              <div className="min-w-0 text-sm">
-                <div className="font-semibold text-[#64748B]">Nhân viên</div>
-                <div className="truncate text-base font-bold text-[#0F172A]">{staffName}</div>
-              </div>
-            </div>
             <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4" onSubmit={handleCreateDeposit}>
               {isAdmin ? (
                 <div className="grid gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-12">
@@ -1547,7 +1540,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
               <div className="grid gap-3 sm:col-span-2 lg:col-span-2">
                 <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2">
-                  <div className="mb-2 text-xs font-semibold text-[#64748B]">Tùy chọn thẻ</div>
                   <div className="grid grid-cols-2 gap-1">
                     {cardActions.map((cardAction) => {
                       const isSelected = depositForm.cardAction === cardAction;
@@ -1582,7 +1574,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </div>
 
                 <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2">
-                  <div className="mb-2 text-xs font-semibold text-[#64748B]">Tùy chọn bi</div>
                   <div className="grid grid-cols-2 gap-1">
                     {ballActions.map((ballAction) => {
                       const isSelected = depositForm.ballAction === ballAction;
@@ -2144,35 +2135,38 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             </div>
 
             <form className="grid gap-3 sm:grid-cols-2 sm:gap-4" onSubmit={handleUpdateDeposit}>
+              {/* fullName and phone: editable by everyone */}
+              <label>
+                <span className={labelClass}>Họ và tên</span>
+                <input
+                  className={inputClass}
+                  value={editForm.fullName}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      fullName: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                <span className={labelClass}>Số điện thoại</span>
+                <input
+                  className={inputClass}
+                  inputMode="tel"
+                  value={editForm.phone}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      phone: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
               {isAdmin ? (
                 <>
-                  <label>
-                    <span className={labelClass}>Họ và tên</span>
-                    <input
-                      className={inputClass}
-                      value={editForm.fullName}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          fullName: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span className={labelClass}>Số điện thoại</span>
-                    <input
-                      className={inputClass}
-                      inputMode="tel"
-                      value={editForm.phone}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          phone: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
                   <label>
                     <span className={labelClass}>Ngày gửi</span>
                     <input

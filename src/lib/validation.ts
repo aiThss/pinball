@@ -71,6 +71,8 @@ export const depositAdminCreateSchema = depositCreateSchema.extend({
 export const depositStaffUpdateSchema = z
   .object({
     actorName: actorNameSchema,
+    fullName: z.string().trim().min(2, "Vui lòng nhập họ tên khách.").optional(),
+    phone: phoneSchema.optional(),
     cards: nonNegativeIntegerSchema.optional(),
     balls: nonNegativeIntegerSchema.optional(),
     status: z.enum(depositStatuses).optional(),

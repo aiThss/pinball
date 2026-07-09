@@ -20,7 +20,7 @@ const labels: Record<string, string> = {
   balls: "Bi",
   status: "Trạng thái",
 };
-const adminOnlyFields = ["fullName", "phone", "depositDate", "depositTime"] as const;
+const adminOnlyFields = ["depositDate", "depositTime"] as const;
 const activeDepositStatus = depositStatuses[0];
 const withdrawCardAction = cardActions[1];
 const withdrawBallAction = ballActions[1];
@@ -51,7 +51,9 @@ function getHeldBalls(deposit: ICustomerDeposit) {
   return deposit.ballAction === withdrawBallAction ? 0 : deposit.balls;
 }
 
-async function serializeWithActiveTotal(deposit: ICustomerDeposit) {
+async function serializeWithActiveTotal(deposit: ICustomerDeposit, phone?: string) {
+  const lookupPhone = phone ?? deposit.phone;
+
   if (deposit.status !== activeDepositStatus) {
     return serializeDeposit(deposit);
   }
@@ -60,7 +62,7 @@ async function serializeWithActiveTotal(deposit: ICustomerDeposit) {
     totalCards: number;
     totalBalls: number;
   }>([
-    { $match: { phone: deposit.phone, status: activeDepositStatus } },
+    { $match: { phone: lookupPhone, status: activeDepositStatus } },
     {
       $group: {
         _id: null,
@@ -118,12 +120,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const changes: string[] = [];
     let actorName = "";
+    let originalPhone: string | undefined;
 
     if (isModifyingAdminFields) {
       const data = depositAdminUpdateSchema.parse(body);
       actorName = data.actorName;
 
       applyChange(deposit, "fullName", data.fullName, changes);
+      if (data.phone !== undefined && data.phone !== deposit.phone) {
+        originalPhone = deposit.phone;
+      }
       applyChange(deposit, "phone", data.phone, changes);
       applyChange(deposit, "depositDate", data.depositDate, changes);
       applyChange(deposit, "depositTime", data.depositTime, changes);
@@ -134,6 +140,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const data = depositStaffUpdateSchema.parse(body);
       actorName = data.actorName;
 
+      applyChange(deposit, "fullName", data.fullName, changes);
+      if (data.phone !== undefined && data.phone !== deposit.phone) {
+        originalPhone = deposit.phone;
+      }
+      applyChange(deposit, "phone", data.phone, changes);
       applyChange(deposit, "cards", data.cards, changes);
       applyChange(deposit, "balls", data.balls, changes);
       applyChange(deposit, "status", data.status, changes);
@@ -154,7 +165,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     await deposit.save();
 
-    return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit) });
+    // Use updated phone for totalText recalculation (phone may have changed)
+    return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit, originalPhone ? deposit.phone : undefined) });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }
