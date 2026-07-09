@@ -120,6 +120,10 @@ type AdminDashboardResponse = {
   recentUpdates: RecentStaffUpdate[];
 };
 
+type StaffConfigResponse = {
+  accessKeyRequired: boolean;
+};
+
 type DepositSuggestion = {
   phone: string;
   fullName: string;
@@ -331,6 +335,30 @@ function normalizePhoneInput(phone: string) {
   return phone.trim().replace(/[\s().-]/g, "");
 }
 
+function readLocalStorage(key: string) {
+  try {
+    return window.localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeLocalStorage(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Keep the current React session usable even when browser storage is unavailable.
+  }
+}
+
+function removeLocalStorage(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures; state is still cleared in memory.
+  }
+}
+
 async function apiRequest<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, init);
   const data = await response.json().catch(() => ({}));
@@ -401,44 +429,99 @@ function lookupFromSuggestion(suggestion: DepositSuggestion, suggestions: Deposi
   };
 }
 
-function StaffGate({ onEnter }: { onEnter: (name: string, accessKey: string) => void }) {
-  const [name, setName] = useState("");
+function StaffGate({
+  accessKeyRequired,
+  initialName = "",
+  message,
+  onEnter,
+}: {
+  accessKeyRequired: boolean;
+  initialName?: string;
+  message?: string;
+  onEnter: (name: string, accessKey: string) => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [accessKey, setAccessKey] = useState("");
+  const [formError, setFormError] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = name.trim();
+    const key = accessKey.trim();
 
     if (!value) {
       return;
     }
 
-    localStorage.setItem(staffStorageKey, value);
-    localStorage.removeItem(staffAccessStorageKey);
-    onEnter(value, "");
+    if (accessKeyRequired && !key) {
+      setFormError("Vui lòng nhập mã truy cập nhân viên.");
+      return;
+    }
+
+    writeLocalStorage(staffStorageKey, value);
+    if (key) {
+      writeLocalStorage(staffAccessStorageKey, key);
+    } else {
+      removeLocalStorage(staffAccessStorageKey);
+    }
+    setFormError("");
+    onEnter(value, key);
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 text-[#0F172A]">
-      <form className="w-full max-w-sm space-y-4" onSubmit={submit}>
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-[#0F172A]">{appTitle}</h1>
-          <p className="mt-1 text-sm text-[#64748B]">Nhập tên nhân viên ca hiện tại</p>
+      <section className="w-full max-w-md rounded-lg border border-[#E5E7EB] bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#111827] text-white">
+            <UserRound aria-hidden="true" size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">{appTitle}</h1>
+            <p className="text-sm text-[#64748B]">Nhập tên nhân viên ca hiện tại</p>
+          </div>
         </div>
-        <label className="block">
-          <span className={labelClass}>Tên nhân viên</span>
-          <input
-            autoFocus
-            className={inputClass}
-            placeholder="Ví dụ: Danh Thai"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
-        </label>
-        <button className={`${primaryButton} w-full`} type="submit">
-          Tiếp tục
-        </button>
-      </form>
+
+        {message || formError ? (
+          <div className="mb-4 rounded-md border border-[#FCA5A5] bg-[#FEF2F2] px-3 py-2 text-sm font-semibold text-[#B91C1C]">
+            {formError || message}
+          </div>
+        ) : null}
+
+        <form className="space-y-4" onSubmit={submit}>
+          <label>
+            <span className={labelClass}>Tên nhân viên</span>
+            <input
+              autoFocus={!initialName}
+              className={inputClass}
+              placeholder="Ví dụ: Danh Thai"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
+          </label>
+          {accessKeyRequired ? (
+            <label>
+              <span className={labelClass}>Mã truy cập nhân viên</span>
+              <input
+                autoComplete="current-password"
+                autoFocus={Boolean(initialName)}
+                className={inputClass}
+                placeholder="Nhập mã được cấp"
+                required
+                type="password"
+                value={accessKey}
+                onChange={(event) => {
+                  setAccessKey(event.target.value);
+                  setFormError("");
+                }}
+              />
+            </label>
+          ) : null}
+          <button className={`${primaryButton} w-full`} type="submit">
+            Tiếp tục
+          </button>
+        </form>
+      </section>
     </main>
   );
 }
@@ -447,6 +530,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const isAdmin = mode === "admin";
   const [staffName, setStaffName] = useState(isAdmin ? adminDisplayName : "");
   const [staffAccessKey, setStaffAccessKey] = useState("");
+  const [staffAccessKeyRequired, setStaffAccessKeyRequired] = useState(false);
+  const [staffSessionLoaded, setStaffSessionLoaded] = useState(isAdmin);
+  const [staffGateMessage, setStaffGateMessage] = useState("");
   const [clock, setClock] = useState<ReturnType<typeof getHanoiParts> | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
@@ -497,12 +583,33 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       return;
     }
 
+    let isActive = true;
     const timeoutId = window.setTimeout(() => {
-      setStaffName(localStorage.getItem(staffStorageKey) ?? "");
-      setStaffAccessKey(localStorage.getItem(staffAccessStorageKey) ?? "");
+      setStaffName(readLocalStorage(staffStorageKey));
+      setStaffAccessKey(readLocalStorage(staffAccessStorageKey));
+
+      void apiRequest<StaffConfigResponse>("/api/staff/config", { cache: "no-store" })
+        .then((data) => {
+          if (isActive) {
+            setStaffAccessKeyRequired(data.accessKeyRequired);
+          }
+        })
+        .catch(() => {
+          if (isActive) {
+            setStaffAccessKeyRequired(false);
+          }
+        })
+        .finally(() => {
+          if (isActive) {
+            setStaffSessionLoaded(true);
+          }
+        });
     }, 0);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
   }, [isAdmin]);
 
   useEffect(() => {
@@ -881,6 +988,22 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     return headers;
   }
 
+  function handleStaffAccessFailure(error: unknown) {
+    if (
+      isAdmin ||
+      !(error instanceof Error) ||
+      !error.message.includes("Mã truy cập nhân viên không hợp lệ")
+    ) {
+      return false;
+    }
+
+    removeLocalStorage(staffAccessStorageKey);
+    setStaffAccessKey("");
+    setStaffAccessKeyRequired(true);
+    setStaffGateMessage(error.message);
+    return true;
+  }
+
   function applyAdminDateFilter(date: string) {
     setAdminDashboardDate(date);
 
@@ -930,10 +1053,22 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     void loadDeposits(next, 1);
   }
 
-  if (!staffName) {
+  if (!isAdmin && !staffSessionLoaded) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 text-[#0F172A]">
+        <p className="text-sm font-semibold text-[#475569]">Đang mở ứng dụng...</p>
+      </main>
+    );
+  }
+
+  if (!isAdmin && (!staffName || (staffAccessKeyRequired && !staffAccessKey))) {
     return (
       <StaffGate
+        accessKeyRequired={staffAccessKeyRequired}
+        initialName={staffName}
+        message={staffGateMessage}
         onEnter={(name, accessKey) => {
+          setStaffGateMessage("");
           setStaffName(name);
           setStaffAccessKey(accessKey);
         }}
@@ -984,6 +1119,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       }
       showNotice("success", "Đã lưu chi tiết lần gửi mới.");
     } catch (error) {
+      if (handleStaffAccessFailure(error)) {
+        return;
+      }
+
       showNotice("error", error instanceof Error ? error.message : "Không lưu được bản ghi.");
     }
   }
@@ -1045,6 +1184,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       }
       showNotice("success", "Đã cập nhật bản ghi.");
     } catch (error) {
+      if (handleStaffAccessFailure(error)) {
+        return;
+      }
+
       showNotice("error", error instanceof Error ? error.message : "Không cập nhật được.");
     }
   }
@@ -1073,10 +1216,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }
 
   function switchStaff() {
-    localStorage.removeItem(staffStorageKey);
-    localStorage.removeItem(staffAccessStorageKey);
+    removeLocalStorage(staffStorageKey);
+    removeLocalStorage(staffAccessStorageKey);
     setStaffName("");
     setStaffAccessKey("");
+    setStaffGateMessage("");
   }
 
   async function handleAdminLogout() {

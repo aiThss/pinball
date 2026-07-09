@@ -30,6 +30,10 @@ function getStaffAccessKey() {
   return process.env.STAFF_ACCESS_KEY?.trim() || process.env.STAFF_PIN?.trim() || "";
 }
 
+export function isStaffAccessKeyConfigured() {
+  return Boolean(getStaffAccessKey());
+}
+
 export async function verifyAdmin(): Promise<boolean> {
   try {
     const cookieStore = await cookies();
