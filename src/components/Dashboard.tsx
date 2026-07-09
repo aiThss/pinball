@@ -403,67 +403,42 @@ function lookupFromSuggestion(suggestion: DepositSuggestion, suggestions: Deposi
 
 function StaffGate({ onEnter }: { onEnter: (name: string, accessKey: string) => void }) {
   const [name, setName] = useState("");
-  const [accessKey, setAccessKey] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = name.trim();
-    const key = accessKey.trim();
 
     if (!value) {
       return;
     }
 
     localStorage.setItem(staffStorageKey, value);
-    if (key) {
-      localStorage.setItem(staffAccessStorageKey, key);
-    } else {
-      localStorage.removeItem(staffAccessStorageKey);
-    }
-    onEnter(value, key);
+    localStorage.removeItem(staffAccessStorageKey);
+    onEnter(value, "");
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 text-[#0F172A]">
-      <section className="w-full max-w-md rounded-lg border border-[#E5E7EB] bg-white p-6 shadow-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#111827] text-white">
-            <UserRound aria-hidden="true" size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">{appTitle}</h1>
-            <p className="text-sm text-[#64748B]">Nhập tên nhân viên ca hiện tại</p>
-          </div>
+      <form className="w-full max-w-sm space-y-4" onSubmit={submit}>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-[#0F172A]">{appTitle}</h1>
+          <p className="mt-1 text-sm text-[#64748B]">Nhập tên nhân viên ca hiện tại</p>
         </div>
-
-        <form className="space-y-4" onSubmit={submit}>
-          <label>
-            <span className={labelClass}>Tên nhân viên</span>
-            <input
-              autoFocus
-              className={inputClass}
-              placeholder="Ví dụ: Danh Thai"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            <span className={labelClass}>Mã truy cập nhân viên</span>
-            <input
-              className={inputClass}
-              autoComplete="current-password"
-              placeholder="Nhập mã được cấp"
-              type="password"
-              value={accessKey}
-              onChange={(event) => setAccessKey(event.target.value)}
-            />
-          </label>
-          <button className={`${primaryButton} w-full`} type="submit">
-            Tiếp tục
-          </button>
-        </form>
-      </section>
+        <label className="block">
+          <span className={labelClass}>Tên nhân viên</span>
+          <input
+            autoFocus
+            className={inputClass}
+            placeholder="Ví dụ: Danh Thai"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+        </label>
+        <button className={`${primaryButton} w-full`} type="submit">
+          Tiếp tục
+        </button>
+      </form>
     </main>
   );
 }
