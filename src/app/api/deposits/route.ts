@@ -407,6 +407,22 @@ export async function POST(request: NextRequest) {
       url: "/",
     });
 
+    // Gửi webhook thông báo tới Telegram Bot (nếu có cấu hình)
+    const webhookUrl = process.env.TELEGRAM_BOT_WEBHOOK_URL;
+    if (webhookUrl) {
+      void fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: deposit._id.toString(),
+          title: `${deposit.fullName} (${deposit.phone})`,
+          type: `${actionParts.join(" + ")} (Bởi ${data.actorName} lúc ${depositTime})`,
+        }),
+      }).catch((err) => {
+        console.error("Lỗi gửi webhook tới Telegram Bot:", err.message);
+      });
+    }
+
     return NextResponse.json({ deposit: serializeDeposit(deposit) }, { status: 201 });
   } catch (error) {
     return jsonError(parseError(error), 400);
