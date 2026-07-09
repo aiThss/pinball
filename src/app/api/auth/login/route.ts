@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const expectedPassword = getAdminPassword();
 
     if (!expectedPassword) {
-      return jsonError("Admin chưa được cấu hình mật khẩu.", 401);
+      return jsonError("Admin password is not configured.", 500);
     }
 
     if (password !== expectedPassword) {
