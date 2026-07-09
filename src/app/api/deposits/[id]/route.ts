@@ -5,7 +5,7 @@ import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
 import { ballActions, cardActions, depositAdminUpdateSchema, depositStaffUpdateSchema, depositStatuses } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
-import { verifyAdmin, verifyStaffWrite } from "@/lib/auth";
+import { verifyAdmin } from "@/lib/auth";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -108,8 +108,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (!isApproved) {
         return jsonError("Bạn không có quyền chỉnh sửa các thông tin quản trị này.", 403);
       }
-    } else if (!(await verifyStaffWrite(request))) {
-      return jsonError("Mã truy cập nhân viên không hợp lệ.", 403);
     }
 
     await connectMongo();

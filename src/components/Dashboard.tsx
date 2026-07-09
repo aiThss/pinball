@@ -120,10 +120,6 @@ type AdminDashboardResponse = {
   recentUpdates: RecentStaffUpdate[];
 };
 
-type StaffConfigResponse = {
-  accessKeyRequired: boolean;
-};
-
 type DepositSuggestion = {
   phone: string;
   fullName: string;
@@ -148,7 +144,6 @@ const statuses: Status[] = ["Đang gửi", "Đã nhận lại", "Đã đổi qu�
 const cardActions: CardAction[] = ["Gửi thẻ", "Lấy thẻ"];
 const ballActions: BallAction[] = ["Gửi bi", "Lấy bi"];
 const staffStorageKey = "pinball_staff_name";
-const staffAccessStorageKey = "pinball_staff_access_key";
 const appTitle = "Ký gửi PINBALL";
 const adminDisplayName = "Danh Thai";
 const emptyFilters: DepositFilters = {
@@ -429,43 +424,19 @@ function lookupFromSuggestion(suggestion: DepositSuggestion, suggestions: Deposi
   };
 }
 
-function StaffGate({
-  accessKeyRequired,
-  initialName = "",
-  message,
-  onEnter,
-}: {
-  accessKeyRequired: boolean;
-  initialName?: string;
-  message?: string;
-  onEnter: (name: string, accessKey: string) => void;
-}) {
+function StaffGate({ initialName = "", onEnter }: { initialName?: string; onEnter: (name: string) => void }) {
   const [name, setName] = useState(initialName);
-  const [accessKey, setAccessKey] = useState("");
-  const [formError, setFormError] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = name.trim();
-    const key = accessKey.trim();
 
     if (!value) {
       return;
     }
 
-    if (accessKeyRequired && !key) {
-      setFormError("Vui lòng nhập mã truy cập nhân viên.");
-      return;
-    }
-
     writeLocalStorage(staffStorageKey, value);
-    if (key) {
-      writeLocalStorage(staffAccessStorageKey, key);
-    } else {
-      removeLocalStorage(staffAccessStorageKey);
-    }
-    setFormError("");
-    onEnter(value, key);
+    onEnter(value);
   }
 
   return (
@@ -481,12 +452,6 @@ function StaffGate({
           </div>
         </div>
 
-        {message || formError ? (
-          <div className="mb-4 rounded-md border border-[#FCA5A5] bg-[#FEF2F2] px-3 py-2 text-sm font-semibold text-[#B91C1C]">
-            {formError || message}
-          </div>
-        ) : null}
-
         <form className="space-y-4" onSubmit={submit}>
           <label>
             <span className={labelClass}>Tên nhân viên</span>
@@ -499,24 +464,6 @@ function StaffGate({
               required
             />
           </label>
-          {accessKeyRequired ? (
-            <label>
-              <span className={labelClass}>Mã truy cập nhân viên</span>
-              <input
-                autoComplete="current-password"
-                autoFocus={Boolean(initialName)}
-                className={inputClass}
-                placeholder="Nhập mã được cấp"
-                required
-                type="password"
-                value={accessKey}
-                onChange={(event) => {
-                  setAccessKey(event.target.value);
-                  setFormError("");
-                }}
-              />
-            </label>
-          ) : null}
           <button className={`${primaryButton} w-full`} type="submit">
             Tiếp tục
           </button>
@@ -529,10 +476,7 @@ function StaffGate({
 export default function Dashboard({ mode }: { mode: Mode }) {
   const isAdmin = mode === "admin";
   const [staffName, setStaffName] = useState(isAdmin ? adminDisplayName : "");
-  const [staffAccessKey, setStaffAccessKey] = useState("");
-  const [staffAccessKeyRequired, setStaffAccessKeyRequired] = useState(false);
   const [staffSessionLoaded, setStaffSessionLoaded] = useState(isAdmin);
-  const [staffGateMessage, setStaffGateMessage] = useState("");
   const [clock, setClock] = useState<ReturnType<typeof getHanoiParts> | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
@@ -583,31 +527,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       return;
     }
 
-    let isActive = true;
     const timeoutId = window.setTimeout(() => {
       setStaffName(readLocalStorage(staffStorageKey));
-      setStaffAccessKey(readLocalStorage(staffAccessStorageKey));
-
-      void apiRequest<StaffConfigResponse>("/api/staff/config", { cache: "no-store" })
-        .then((data) => {
-          if (isActive) {
-            setStaffAccessKeyRequired(data.accessKeyRequired);
-          }
-        })
-        .catch(() => {
-          if (isActive) {
-            setStaffAccessKeyRequired(false);
-          }
-        })
-        .finally(() => {
-          if (isActive) {
-            setStaffSessionLoaded(true);
-          }
-        });
+      setStaffSessionLoaded(true);
     }, 0);
 
     return () => {
-      isActive = false;
       window.clearTimeout(timeoutId);
     };
   }, [isAdmin]);
@@ -977,31 +902,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }
 
   function getJsonWriteHeaders() {
-    const headers: Record<string, string> = {
+    return {
       "Content-Type": "application/json",
     };
-
-    if (!isAdmin && staffAccessKey) {
-      headers["x-staff-access-key"] = staffAccessKey;
-    }
-
-    return headers;
-  }
-
-  function handleStaffAccessFailure(error: unknown) {
-    if (
-      isAdmin ||
-      !(error instanceof Error) ||
-      !error.message.includes("Mã truy cập nhân viên không hợp lệ")
-    ) {
-      return false;
-    }
-
-    removeLocalStorage(staffAccessStorageKey);
-    setStaffAccessKey("");
-    setStaffAccessKeyRequired(true);
-    setStaffGateMessage(error.message);
-    return true;
   }
 
   function applyAdminDateFilter(date: string) {
@@ -1061,16 +964,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     );
   }
 
-  if (!isAdmin && (!staffName || (staffAccessKeyRequired && !staffAccessKey))) {
+  if (!isAdmin && !staffName) {
     return (
       <StaffGate
-        accessKeyRequired={staffAccessKeyRequired}
         initialName={staffName}
-        message={staffGateMessage}
-        onEnter={(name, accessKey) => {
-          setStaffGateMessage("");
+        onEnter={(name) => {
           setStaffName(name);
-          setStaffAccessKey(accessKey);
         }}
       />
     );
@@ -1119,10 +1018,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       }
       showNotice("success", "Đã lưu chi tiết lần gửi mới.");
     } catch (error) {
-      if (handleStaffAccessFailure(error)) {
-        return;
-      }
-
       showNotice("error", error instanceof Error ? error.message : "Không lưu được bản ghi.");
     }
   }
@@ -1184,10 +1079,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       }
       showNotice("success", "Đã cập nhật bản ghi.");
     } catch (error) {
-      if (handleStaffAccessFailure(error)) {
-        return;
-      }
-
       showNotice("error", error instanceof Error ? error.message : "Không cập nhật được.");
     }
   }
@@ -1217,10 +1108,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
   function switchStaff() {
     removeLocalStorage(staffStorageKey);
-    removeLocalStorage(staffAccessStorageKey);
     setStaffName("");
-    setStaffAccessKey("");
-    setStaffGateMessage("");
   }
 
   async function handleAdminLogout() {

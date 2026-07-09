@@ -26,14 +26,6 @@ function safeCompare(provided: string, expected: string) {
   return crypto.timingSafeEqual(providedBuffer, expectedBuffer);
 }
 
-function getStaffAccessKey() {
-  return process.env.STAFF_ACCESS_KEY?.trim() || process.env.STAFF_PIN?.trim() || "";
-}
-
-export function isStaffAccessKeyConfigured() {
-  return Boolean(getStaffAccessKey());
-}
-
 export async function verifyAdmin(): Promise<boolean> {
   try {
     const cookieStore = await cookies();
@@ -49,27 +41,4 @@ export async function verifyAdmin(): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-export async function verifyStaffWrite(request: Request): Promise<boolean> {
-  if (await verifyAdmin()) {
-    return true;
-  }
-
-  const expectedKey = getStaffAccessKey();
-
-  if (!expectedKey) {
-    return process.env.NODE_ENV !== "production";
-  }
-
-  const providedKey =
-    request.headers.get("x-staff-access-key")?.trim() ||
-    request.headers.get("x-staff-pin")?.trim() ||
-    "";
-
-  if (!providedKey) {
-    return false;
-  }
-
-  return safeCompare(providedKey, expectedKey);
 }

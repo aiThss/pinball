@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api";
-import { verifyAdmin, verifyStaffWrite } from "@/lib/auth";
+import { verifyAdmin } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
 import { sendPushToAll } from "@/lib/webpush";
@@ -309,8 +309,6 @@ export async function POST(request: NextRequest) {
       if (!isAdminApproved) {
         return jsonError("Bạn không có quyền chọn ngày giờ khi tạo bản ghi.", 403);
       }
-    } else if (!(await verifyStaffWrite(request))) {
-      return jsonError("Mã truy cập nhân viên không hợp lệ.", 403);
     }
 
     const data = isAdminCreate
