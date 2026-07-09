@@ -250,6 +250,62 @@ function actorName(deposit: Deposit, field: "created" | "updated") {
   return deposit.updatedByName || deposit.updatedBy?.displayName || "N/A";
 }
 
+function getLatestUpdateEntry(deposit: Deposit) {
+  return [...deposit.history].reverse().find((entry) => entry.action === "UPDATE");
+}
+
+function hasTimestampUpdate(deposit: Deposit) {
+  const createdAt = Date.parse(deposit.createdAt);
+  const updatedAt = Date.parse(deposit.updatedAt);
+
+  if (!Number.isFinite(createdAt) || !Number.isFinite(updatedAt)) {
+    return Boolean(deposit.createdAt && deposit.updatedAt && deposit.createdAt !== deposit.updatedAt);
+  }
+
+  return updatedAt !== createdAt;
+}
+
+function getRecordUpdateInfo(deposit: Deposit) {
+  const latestUpdate = getLatestUpdateEntry(deposit);
+
+  if (!latestUpdate && !hasTimestampUpdate(deposit)) {
+    return null;
+  }
+
+  return {
+    actorName: latestUpdate?.actorName || actorName(deposit, "updated"),
+    at: latestUpdate?.at || deposit.updatedAt,
+    content: latestUpdate?.content ?? "",
+  };
+}
+
+function CompactUpdateInfo({
+  changeClassName,
+  deposit,
+  lineClassName,
+}: {
+  changeClassName?: string;
+  deposit: Deposit;
+  lineClassName: string;
+}) {
+  const updateInfo = getRecordUpdateInfo(deposit);
+
+  if (!updateInfo) {
+    return null;
+  }
+
+  return (
+    <>
+      <div className={lineClassName}>
+        Cập nhật bởi: {updateInfo.actorName} lúc {formatShortDateTime(updateInfo.at)}
+      </div>
+      {updateInfo.content ? (
+        <div className={changeClassName ?? lineClassName}>Thay đổi: {updateInfo.content}</div>
+      ) : null}
+    </>
+  );
+}
+
 function formatShortDateTime(value?: string) {
   if (!value) {
     return "";
@@ -1951,15 +2007,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     <div className="mt-1 font-bold">{deposit.totalText}</div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B]">
-                    <span>
+                  <div className="mt-3 space-y-1 text-xs text-[#64748B]">
+                    <div>
                       Tạo bởi: {actorName(deposit, "created")} lúc {formatShortDateTime(deposit.createdAt)}
-                    </span>
-                    {isAdmin ? (
-                      <span>
-                        Cập nhật bởi: {actorName(deposit, "updated")} lúc {formatShortDateTime(deposit.updatedAt)}
-                      </span>
-                    ) : null}
+                    </div>
+                    <CompactUpdateInfo
+                      changeClassName="line-clamp-1 text-xs text-[#475569]"
+                      deposit={deposit}
+                      lineClassName="text-xs text-[#64748B]"
+                    />
                   </div>
 
                   <div
@@ -2098,15 +2154,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                           </span>
                         </td>
                         <td className="px-5 py-4">
-                          <div>Tạo bởi: {actorName(deposit, "created")}</div>
                           <div className="text-xs text-[#64748B]">
-                            Lúc {formatShortDateTime(deposit.createdAt)}
+                            Tạo bởi: {actorName(deposit, "created")} lúc {formatShortDateTime(deposit.createdAt)}
                           </div>
-                          {isAdmin ? (
-                            <div className="text-xs text-[#64748B]">
-                              Cập nhật bởi: {actorName(deposit, "updated")} lúc {formatShortDateTime(deposit.updatedAt)}
-                            </div>
-                          ) : null}
+                          <CompactUpdateInfo
+                            changeClassName="line-clamp-2 text-xs text-[#475569]"
+                            deposit={deposit}
+                            lineClassName="text-xs text-[#64748B]"
+                          />
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-2">
