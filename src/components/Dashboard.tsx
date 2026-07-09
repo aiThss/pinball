@@ -382,8 +382,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [depositForm, setDepositForm] = useState(() => getDefaultDepositForm());
   const [depositLookup, setDepositLookup] = useState<DepositLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
-  const [filterLookup, setFilterLookup] = useState<DepositLookup | null>(null);
-  const [filterLookupLoading, setFilterLookupLoading] = useState(false);
+
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyQueryResults, setHistoryQueryResults] = useState<DepositSuggestion[]>([]);
+  const [historyQueryLoading, setHistoryQueryLoading] = useState(false);
+  const [selectedHistoryCustomer, setSelectedHistoryCustomer] = useState<DepositSuggestion | null>(null);
   const [quickQuery, setQuickQuery] = useState("");
   const [quickLookupResults, setQuickLookupResults] = useState<DepositSuggestion[]>([]);
   const [quickLookupLoading, setQuickLookupLoading] = useState(false);
@@ -503,7 +506,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const cardRankings = summary.cardRankings ?? [];
   const topCardRanking = cardRankings[0] ?? null;
   const normalizedDepositPhone = normalizePhoneInput(depositForm.phone);
-  const normalizedFilterPhone = normalizePhoneInput(filters.phone);
   const activeDepositLookup =
     normalizedDepositPhone.length >= 8 && depositLookup?.phone === normalizedDepositPhone
       ? depositLookup
@@ -511,10 +513,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const depositSuggestions =
     normalizedDepositPhone.length >= minPhoneSuggestionDigits && depositLookup?.phone === normalizedDepositPhone
       ? depositLookup.suggestions
-      : [];
-  const filterSuggestions =
-    normalizedFilterPhone.length >= minPhoneSuggestionDigits && filterLookup?.phone === normalizedFilterPhone
-      ? filterLookup.suggestions
       : [];
 
   const pendingDepositTotals = useMemo(() => {
@@ -688,45 +686,48 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     };
   }, [normalizedDepositPhone]);
 
+  // History customer search (debounced, q-based)
   useEffect(() => {
-    if (normalizedFilterPhone.length < minPhoneSuggestionDigits) {
-      const timeoutId = window.setTimeout(() => {
-        setFilterLookup(null);
-        setFilterLookupLoading(false);
-      }, 0);
+    const trimmed = historyQuery.trim();
+    const digits = trimmed.replace(/\D/g, "");
+    const hasText = trimmed.replace(/\d/g, "").trim().length >= 2;
+    const hasDigits = digits.length >= 3;
 
-      return () => window.clearTimeout(timeoutId);
+    if (!hasText && !hasDigits) {
+      setHistoryQueryResults([]);
+      setHistoryQueryLoading(false);
+      return;
     }
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(async () => {
-      setFilterLookupLoading(true);
+      setHistoryQueryLoading(true);
 
       try {
         const data = await apiRequest<DepositLookup>(
-          `/api/deposits/lookup?phone=${encodeURIComponent(normalizedFilterPhone)}`,
+          `/api/deposits/lookup?q=${encodeURIComponent(trimmed)}`,
           { signal: controller.signal },
         );
 
         if (!controller.signal.aborted) {
-          setFilterLookup(data);
+          setHistoryQueryResults(data.suggestions);
         }
       } catch {
         if (!controller.signal.aborted) {
-          setFilterLookup(null);
+          setHistoryQueryResults([]);
         }
       } finally {
         if (!controller.signal.aborted) {
-          setFilterLookupLoading(false);
+          setHistoryQueryLoading(false);
         }
       }
-    }, 300);
+    }, 350);
 
     return () => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [normalizedFilterPhone]);
+  }, [historyQuery]);
 
   // Quick customer lookup effect (debounced, triggered by quickQuery)
   useEffect(() => {
@@ -782,7 +783,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   function handleClearFilters() {
     setFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
-    setFilterLookup(null);
+    setHistoryQuery("");
+    setHistoryQueryResults([]);
+    setSelectedHistoryCustomer(null);
     void loadDeposits(emptyFilters, 1);
   }
 
@@ -825,13 +828,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     createFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function selectFilterSuggestion(suggestion: DepositSuggestion) {
-    setFilters((current) => ({
-      ...current,
-      name: current.name.trim() ? current.name : suggestion.fullName,
-      phone: suggestion.phone,
-    }));
-    setFilterLookup(lookupFromSuggestion(suggestion, [suggestion]));
+  function selectHistoryCustomer(suggestion: DepositSuggestion) {
+    setSelectedHistoryCustomer(suggestion);
+    setHistoryQuery("");
+    setHistoryQueryResults([]);
+    const next: DepositFilters = { ...filters, name: suggestion.fullName, phone: suggestion.phone };
+    setFilters(next);
+    setAppliedFilters(next);
+    void loadDeposits(next, 1);
   }
 
   if (!staffName) {
@@ -1616,88 +1620,114 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           </section>
 
           <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
-            <form
-              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4"
-              onSubmit={handleSearch}
-            >
-              <label className="lg:col-span-3">
-                <span className={labelClass}>Lọc lịch sử theo họ tên</span>
-                <input
-                  className={inputClass}
-                  placeholder="Nhập họ tên"
-                  value={filters.name}
-                  onChange={(event) =>
-                    setFilters((current) => ({ ...current, name: event.target.value }))
-                  }
-                />
-              </label>
-              <div className="lg:col-span-3">
-                <label className={labelClass} htmlFor="filter-phone">
-                  Tìm theo SĐT
-                </label>
-                <input
-                  id="filter-phone"
-                  className={inputClass}
-                  inputMode="tel"
-                  placeholder="Nhập số điện thoại"
-                  value={filters.phone}
-                  onChange={(event) =>
-                    setFilters((current) => ({ ...current, phone: event.target.value }))
-                  }
-                />
-                <PhoneSuggestionBubble
-                  suggestions={filterSuggestions}
-                  onSelect={selectFilterSuggestion}
-                />
-                {filterLookupLoading && normalizedFilterPhone.length >= minPhoneSuggestionDigits ? (
-                  <span className="mt-2 block text-xs font-semibold leading-5 text-[#64748B]">
-                    Đang tìm khách...
-                  </span>
-                ) : null}
-              </div>
-              {isAdmin ? (
-                <label className="lg:col-span-2">
-                  <span className={labelClass}>Ngày gửi</span>
-                  <input
-                    className={inputClass}
-                    type="date"
-                    value={filters.date}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, date: event.target.value }))
-                    }
-                  />
-                </label>
-              ) : null}
-              <label className={isAdmin ? "lg:col-span-2" : "sm:col-span-2 lg:col-span-3"}>
-                <span className={labelClass}>Trạng thái</span>
-                <select
-                  className={selectClass}
-                  value={filters.status}
-                  onChange={(event) =>
-                    setFilters((current) => ({ ...current, status: event.target.value }))
-                  }
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-base font-bold">Lịch sử bản ghi</h2>
+              {selectedHistoryCustomer ? (
+                <button
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-1 text-xs font-semibold text-[#334155] transition hover:bg-[#EEF2F7]"
+                  onClick={handleClearFilters}
+                  type="button"
                 >
-                  <option value="">Tất cả</option>
+                  <X aria-hidden="true" size={12} />
+                  Xóa lọc
+                </button>
+              ) : null}
+            </div>
+
+            {/* Selected customer preview */}
+            {selectedHistoryCustomer ? (
+              <div className="mb-3 flex items-center gap-3 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-bold text-[#0F172A]">{selectedHistoryCustomer.fullName}</div>
+                  <div className="text-xs font-semibold text-[#2563EB]">{selectedHistoryCustomer.phone}</div>
+                  <div className="mt-0.5 text-xs text-[#64748B]">
+                    Thẻ: {selectedHistoryCustomer.totalCards} | Bi: {selectedHistoryCustomer.totalBalls}
+                  </div>
+                </div>
+                {selectedHistoryCustomer.activeDeposits > 0 ? (
+                  <span className="shrink-0 rounded-md bg-[#DBEAFE] px-2 py-0.5 text-xs font-semibold text-[#2563EB]">
+                    {selectedHistoryCustomer.activeDeposits} đang gửi
+                  </span>
+                ) : (
+                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${statusClass(selectedHistoryCustomer.latestStatus)}`}>
+                    {selectedHistoryCustomer.latestStatus}
+                  </span>
+                )}
+              </div>
+            ) : null}
+
+            <form onSubmit={handleSearch}>
+              {/* Unified customer search */}
+              {!selectedHistoryCustomer ? (
+                <div className="mb-3">
+                  <label className={labelClass} htmlFor="history-search">
+                    Tìm khách theo tên hoặc SĐT
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="history-search"
+                      className={inputClass}
+                      placeholder="Nhập tên hoặc số điện thoại..."
+                      value={historyQuery}
+                      autoComplete="off"
+                      onChange={(event) => setHistoryQuery(event.target.value)}
+                    />
+                    {historyQueryLoading ? (
+                      <span className="mt-1 block text-xs text-[#64748B]">Đang tìm khách...</span>
+                    ) : null}
+                    {historyQueryResults.length > 0 ? (
+                      <PhoneSuggestionBubble
+                        suggestions={historyQueryResults}
+                        onSelect={selectHistoryCustomer}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Compact status + date row */}
+              <div className="flex flex-wrap gap-2">
+                <select
+                  aria-label="Trạng thái"
+                  className="h-10 flex-1 rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
+                  value={filters.status}
+                  onChange={(event) => {
+                    const next = { ...filters, status: event.target.value };
+                    setFilters(next);
+                    setAppliedFilters(next);
+                    void loadDeposits(next, 1);
+                  }}
+                >
+                  <option value="">Tất cả trạng thái</option>
                   {statuses.map((status) => (
                     <option key={status} value={status}>
                       {status}
                     </option>
                   ))}
                 </select>
-              </label>
-              <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2 lg:flex lg:items-end">
-                <button className={`${primaryButton} w-full`} type="submit">
-                  <Search aria-hidden="true" size={18} />
-                  Tìm
-                </button>
-                <button
-                  className={`${secondaryButton} w-full`}
-                  onClick={handleClearFilters}
-                  type="button"
-                >
-                  <RefreshCw aria-hidden="true" size={18} />
-                  Xóa lọc
-                </button>
+                {isAdmin ? (
+                  <input
+                    aria-label="Ngày gửi"
+                    className="h-10 flex-1 rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
+                    type="date"
+                    value={filters.date}
+                    onChange={(event) => {
+                      const next = { ...filters, date: event.target.value };
+                      setFilters(next);
+                      setAppliedFilters(next);
+                      void loadDeposits(next, 1);
+                    }}
+                  />
+                ) : null}
+                {!selectedHistoryCustomer ? (
+                  <button
+                    className="h-10 rounded-md border border-[#CBD5E1] bg-white px-3 text-sm font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
+                    onClick={handleClearFilters}
+                    type="button"
+                  >
+                    Xóa lọc
+                  </button>
+                ) : null}
               </div>
             </form>
           </section>
