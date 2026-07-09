@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Cell, Sheet, SheetData } from "write-excel-file/browser";
 import {
@@ -384,8 +384,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [filterLookup, setFilterLookup] = useState<DepositLookup | null>(null);
   const [filterLookupLoading, setFilterLookupLoading] = useState(false);
+  const [quickQuery, setQuickQuery] = useState("");
+  const [quickLookupResults, setQuickLookupResults] = useState<DepositSuggestion[]>([]);
+  const [quickLookupLoading, setQuickLookupLoading] = useState(false);
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
   const [pushLoading, setPushLoading] = useState(false);
+  const createFormRef = useRef<HTMLElement>(null);
   const [editForm, setEditForm] = useState({
     fullName: "",
     phone: "",
@@ -724,6 +728,49 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     };
   }, [normalizedFilterPhone]);
 
+  // Quick customer lookup effect (debounced, triggered by quickQuery)
+  useEffect(() => {
+    const trimmed = quickQuery.trim();
+    const digits = trimmed.replace(/\D/g, "");
+    const hasText = trimmed.replace(/\d/g, "").trim().length >= 2;
+    const hasDigits = digits.length >= 3;
+
+    if (!hasText && !hasDigits) {
+      setQuickLookupResults([]);
+      setQuickLookupLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setQuickLookupLoading(true);
+
+      try {
+        const data = await apiRequest<DepositLookup>(
+          `/api/deposits/lookup?q=${encodeURIComponent(trimmed)}`,
+          { signal: controller.signal },
+        );
+
+        if (!controller.signal.aborted) {
+          setQuickLookupResults(data.suggestions);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setQuickLookupResults([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setQuickLookupLoading(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [quickQuery]);
+
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -755,6 +802,27 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       phone: suggestion.phone,
     }));
     setDepositLookup(lookupFromSuggestion(suggestion, [suggestion]));
+  }
+
+  function selectQuickLookupSuggestion(suggestion: DepositSuggestion) {
+    setDepositForm((current) => ({
+      ...current,
+      fullName: suggestion.fullName,
+      phone: suggestion.phone,
+    }));
+    setDepositLookup(lookupFromSuggestion(suggestion, [suggestion]));
+    setQuickQuery("");
+    setQuickLookupResults([]);
+  }
+
+  function fillFromDeposit(deposit: Deposit) {
+    setDepositForm((current) => ({
+      ...current,
+      fullName: deposit.fullName,
+      phone: deposit.phone,
+    }));
+    setDepositLookup(null);
+    createFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function selectFilterSuggestion(suggestion: DepositSuggestion) {
@@ -1288,7 +1356,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             </button>
           </section>
 
-          <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+          <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5" ref={createFormRef}>
             <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-lg font-bold">{isAdmin ? "Tạo bản ghi mới" : "Nhập gửi giữ"}</h2>
@@ -1304,6 +1372,35 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </span>
               ) : null}
             </div>
+
+            {/* Quick customer lookup */}
+            <div className="mb-4">
+              <label className={labelClass} htmlFor="quick-lookup">
+                Tìm khách nhanh theo tên hoặc SĐT
+              </label>
+              <div className="relative">
+                <input
+                  id="quick-lookup"
+                  className={inputClass}
+                  placeholder="Nhập tên hoặc số điện thoại..."
+                  value={quickQuery}
+                  autoComplete="off"
+                  onChange={(event) => setQuickQuery(event.target.value)}
+                />
+                {quickLookupLoading ? (
+                  <span className="mt-1 block text-xs font-semibold text-[#64748B]">
+                    Đang tìm khách...
+                  </span>
+                ) : null}
+                {quickLookupResults.length > 0 ? (
+                  <PhoneSuggestionBubble
+                    suggestions={quickLookupResults}
+                    onSelect={selectQuickLookupSuggestion}
+                  />
+                ) : null}
+              </div>
+            </div>
+
             <div className="mb-4 flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[#334155] shadow-sm">
                 <UserRound aria-hidden="true" size={18} />
@@ -1533,7 +1630,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               onSubmit={handleSearch}
             >
               <label className="lg:col-span-3">
-                <span className={labelClass}>Tìm theo họ tên</span>
+                <span className={labelClass}>Lọc lịch sử theo họ tên</span>
                 <input
                   className={inputClass}
                   placeholder="Nhập họ tên"
@@ -1727,7 +1824,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
                   <div
                     className={`mt-3 grid gap-2 ${
-                      isAdmin ? "grid-cols-[1fr_48px_48px]" : "grid-cols-1"
+                      isAdmin ? "grid-cols-[1fr_48px_48px_48px]" : "grid-cols-[1fr_auto]"
                     }`}
                   >
                     <button
@@ -1737,6 +1834,16 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     >
                       <Save aria-hidden="true" size={18} />
                       Cập nhật
+                    </button>
+                    <button
+                      className={`${secondaryButton} min-h-12 whitespace-nowrap px-3`}
+                      aria-label="Tạo tiếp cho khách này"
+                      onClick={() => fillFromDeposit(deposit)}
+                      title="Tạo tiếp"
+                      type="button"
+                    >
+                      <Plus aria-hidden="true" size={16} />
+                      Tạo tiếp
                     </button>
                     {isAdmin ? (
                       <button
@@ -1870,6 +1977,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                               type="button"
                             >
                               <Save aria-hidden="true" size={16} />
+                            </button>
+                            <button
+                              className={`${iconButton} text-[#2563EB]`}
+                              aria-label="Tạo tiếp cho khách này"
+                              onClick={() => fillFromDeposit(deposit)}
+                              title="Tạo tiếp"
+                              type="button"
+                            >
+                              <Plus aria-hidden="true" size={16} />
                             </button>
                             {isAdmin ? (
                               <button

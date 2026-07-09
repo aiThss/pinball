@@ -32,5 +32,5 @@ export function formatDate(value: string) {
 export const formatDisplayDate = formatDate;
 
 export function buildTotalText(cards: number, balls: number) {
-  return `thẻ: ${cards} | bi: ${balls} | Tổng: ${cards} thẻ + ${balls} bi`;
+  return `Thẻ: ${cards} | Bi: ${balls}`;
 }

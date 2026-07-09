@@ -5,6 +5,7 @@ import { ballActions, cardActions, depositStatuses, normalizePhone } from "@/lib
 import { CustomerDeposit } from "@/models/CustomerDeposit";
 
 const minSuggestionDigits = 3;
+const minSuggestionTextLength = 2;
 const suggestionLimit = 6;
 const withdrawCardAction = cardActions[1];
 const withdrawBallAction = ballActions[1];
@@ -19,12 +20,51 @@ type PhoneSuggestion = {
   latestDepositDate: string;
 };
 
+function buildQueryFilter(phone: string, rawQ: string) {
+  // Generic q param: may contain digits (phone match), text (name match), or both
+  if (rawQ) {
+    const digits = rawQ.replace(/\D/g, "");
+    const hasDigits = digits.length >= minSuggestionDigits;
+    const hasText = rawQ.replace(/\d/g, "").trim().length >= minSuggestionTextLength;
+
+    if (hasDigits && hasText) {
+      return {
+        $or: [
+          { phone: { $regex: escapeRegex(digits), $options: "i" } },
+          { fullName: { $regex: escapeRegex(rawQ.trim()), $options: "i" } },
+        ],
+      };
+    }
+
+    if (hasDigits) {
+      return { phone: { $regex: escapeRegex(digits), $options: "i" } };
+    }
+
+    if (hasText) {
+      return { fullName: { $regex: escapeRegex(rawQ.trim()), $options: "i" } };
+    }
+
+    // q too short — return no-match sentinel
+    return null;
+  }
+
+  // Legacy phone param
+  if (phone.length >= minSuggestionDigits) {
+    return { phone: { $regex: escapeRegex(phone), $options: "i" } };
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const rawPhone = request.nextUrl.searchParams.get("phone") ?? "";
+    const rawQ = request.nextUrl.searchParams.get("q") ?? "";
     const phone = normalizePhone(rawPhone);
 
-    if (phone.length < minSuggestionDigits) {
+    const filter = buildQueryFilter(phone, rawQ);
+
+    if (!filter) {
       return NextResponse.json({
         found: false,
         phone,
@@ -39,7 +79,7 @@ export async function GET(request: NextRequest) {
     await connectMongo();
 
     const suggestions = await CustomerDeposit.aggregate<PhoneSuggestion>([
-      { $match: { phone: { $regex: escapeRegex(phone), $options: "i" } } },
+      { $match: filter },
       { $sort: { updatedAt: -1, createdAt: -1 } },
       {
         $group: {
