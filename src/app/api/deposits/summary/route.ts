@@ -27,10 +27,10 @@ export async function GET() {
         totalBalls: number;
       }>([
         { $match: { status: activeDepositStatus } },
+        // Stage 1: held totals per unique customer (phone)
         {
           $group: {
-            _id: null,
-            activeDeposits: { $sum: 1 },
+            _id: "$phone",
             totalCards: {
               $sum: {
                 $cond: [{ $ne: ["$cardAction", withdrawCardAction] }, "$cards", 0],
@@ -41,6 +41,23 @@ export async function GET() {
                 $cond: [{ $ne: ["$ballAction", withdrawBallAction] }, "$balls", 0],
               },
             },
+          },
+        },
+        // Stage 2: aggregate across customers — count only those holding ≥1 card or ball
+        {
+          $group: {
+            _id: null,
+            activeDeposits: {
+              $sum: {
+                $cond: [
+                  { $or: [{ $gt: ["$totalCards", 0] }, { $gt: ["$totalBalls", 0] }] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            totalCards: { $sum: "$totalCards" },
+            totalBalls: { $sum: "$totalBalls" },
           },
         },
       ]),

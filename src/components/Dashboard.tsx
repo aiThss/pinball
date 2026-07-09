@@ -1167,7 +1167,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 ) : null}
               </div>
               <p className="truncate text-xs text-[#64748B] sm:text-sm">
-                {isAdmin ? "Kiểm tra ngày giờ, thẻ, bi và lịch sử" : `Nhân viên: ${staffName}`}
+                {isAdmin ? "Kiểm tra ngày giờ, thẻ, bi và lịch sử" : <span>Nhân viên: <span className="font-bold text-[#0F172A]">{staffName}</span></span>}
               </p>
             </div>
           </div>
@@ -1310,7 +1310,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   <Ticket aria-hidden="true" size={22} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-[#334155] sm:text-sm">Đang gửi</div>
+                  <div className="text-xs font-semibold text-[#334155] sm:text-sm">Khách đang gửi</div>
                   <div className="text-2xl font-bold sm:text-3xl">{activeDeposits}</div>
                 </div>
               </div>
