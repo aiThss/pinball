@@ -1134,6 +1134,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         deposit.depositTime,
         deposit.cards,
         deposit.balls,
+        `${deposit.cards} - ${deposit.balls}`,
         actorName(deposit, "created"),
       ]);
       const depositSheet: SheetData = [
@@ -1148,6 +1149,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           header("Giờ gửi"),
           header("Thẻ"),
           header("Bi"),
+          header("Tổng thẻ và bi"),
           header("Nhân viên tạo"),
         ],
         ...depositRows,
@@ -1164,6 +1166,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             { width: 12 },
             { width: 10 },
             { width: 10 },
+            { width: 18 },
             { width: 18 },
           ],
           stickyRowsCount: 4,
