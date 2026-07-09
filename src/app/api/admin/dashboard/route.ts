@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
           },
         },
         { $sort: { "history.at": -1 } },
-        { $limit: 8 },
+        { $limit: 100 },
         {
           $project: {
             _id: { $toString: "$history._id" },

@@ -482,6 +482,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [adminDateSummary, setAdminDateSummary] = useState<AdminDateSummary>(emptyAdminDateSummary);
   const [recentStaffUpdates, setRecentStaffUpdates] = useState<RecentStaffUpdate[]>([]);
   const [showRecentStaffUpdates, setShowRecentStaffUpdates] = useState(false);
+  const [recentStaffUpdatesPage, setRecentStaffUpdatesPage] = useState(1);
   const [adminDashboardLoading, setAdminDashboardLoading] = useState(false);
   const [pagination, setPagination] = useState({
     total: 0,
@@ -614,6 +615,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       const data = await apiRequest<AdminDashboardResponse>(`/api/admin/dashboard?${params.toString()}`);
       setAdminDateSummary(data.dateSummary);
       setRecentStaffUpdates(data.recentUpdates);
+      setRecentStaffUpdatesPage(1);
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không tải được bảng admin.");
     } finally {
@@ -1446,33 +1448,89 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     <ChevronDown className="h-4 w-4 text-[#64748B]" />
                   )}
                 </button>
-                {showRecentStaffUpdates && (
-                  <div className="mt-3">
-                    {recentStaffUpdates.length === 0 ? (
-                      <div className="rounded-md border border-dashed border-[#CBD5E1] bg-white px-3 py-3 text-sm text-[#64748B]">
-                        Chưa có cập nhật gần đây từ nhân viên.
-                      </div>
-                    ) : (
-                      <div className="grid gap-2 lg:grid-cols-2">
-                        {recentStaffUpdates.map((update) => (
-                          <article className="rounded-md border border-[#E5E7EB] bg-white px-3 py-2" key={update.id}>
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-bold text-[#0F172A]">{update.fullName}</div>
-                                <div className="text-xs font-semibold text-[#2563EB]">{update.phone}</div>
-                              </div>
-                              <div className="shrink-0 text-right text-xs text-[#64748B]">
-                                <div className="font-semibold text-[#334155]">{update.updatedByName}</div>
-                                <div>{formatShortDateTime(update.updatedAt)}</div>
-                              </div>
+                {showRecentStaffUpdates && (() => {
+                  const updatesPerPage = 10;
+                  const totalUpdates = recentStaffUpdates.length;
+                  const totalPages = Math.ceil(totalUpdates / updatesPerPage) || 1;
+                  const currentPage = Math.max(1, Math.min(recentStaffUpdatesPage, totalPages));
+                  const startIndex = (currentPage - 1) * updatesPerPage;
+                  const paginatedUpdates = recentStaffUpdates.slice(startIndex, startIndex + updatesPerPage);
+
+                  return (
+                    <div className="mt-3">
+                      {totalUpdates === 0 ? (
+                        <>
+                          <div className="rounded-md border border-dashed border-[#CBD5E1] bg-white px-3 py-3 text-sm text-[#64748B]">
+                            Chưa có cập nhật gần đây từ nhân viên.
+                          </div>
+                          <div className="mt-3 flex justify-center border-t border-[#E5E7EB] pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowRecentStaffUpdates(false)}
+                              className="flex w-full cursor-pointer items-center justify-center gap-1 py-1 text-xs font-semibold text-[#64748B] hover:text-[#0F172A]"
+                            >
+                              <ChevronUp className="h-3 w-3" /> Thu gọn danh sách
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="grid gap-2 lg:grid-cols-2">
+                            {paginatedUpdates.map((update) => (
+                              <article className="rounded-md border border-[#E5E7EB] bg-white px-3 py-2" key={update.id}>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="truncate text-sm font-bold text-[#0F172A]">{update.fullName}</div>
+                                    <div className="text-xs font-semibold text-[#2563EB]">{update.phone}</div>
+                                  </div>
+                                  <div className="shrink-0 text-right text-xs text-[#64748B]">
+                                    <div className="font-semibold text-[#334155]">{update.updatedByName}</div>
+                                    <div>{formatShortDateTime(update.updatedAt)}</div>
+                                  </div>
+                                </div>
+                                <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#334155]">{update.content}</p>
+                              </article>
+                            ))}
+                          </div>
+
+                          {totalPages > 1 && (
+                            <div className="mt-3 flex items-center justify-between border-t border-[#E5E7EB] pt-3 text-xs">
+                              <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() => setRecentStaffUpdatesPage(currentPage - 1)}
+                                className="cursor-pointer rounded border border-[#CBD5E1] bg-white px-2 py-1 font-semibold text-[#334155] hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+                              >
+                                Trang trước
+                              </button>
+                              <span className="font-semibold text-[#64748B]">
+                                Trang {currentPage} / {totalPages}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setRecentStaffUpdatesPage(currentPage + 1)}
+                                className="cursor-pointer rounded border border-[#CBD5E1] bg-white px-2 py-1 font-semibold text-[#334155] hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+                              >
+                                Trang sau
+                              </button>
                             </div>
-                            <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#334155]">{update.content}</p>
-                          </article>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          )}
+
+                          <div className="mt-3 flex justify-center border-t border-[#E5E7EB] pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowRecentStaffUpdates(false)}
+                              className="flex w-full cursor-pointer items-center justify-center gap-1 py-1 text-xs font-semibold text-[#64748B] hover:text-[#0F172A]"
+                            >
+                              <ChevronUp className="h-3 w-3" /> Thu gọn danh sách
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </section>
           ) : null}
