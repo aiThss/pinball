@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && node scripts/copy-standalone-assets.mjs",
+    "dev": "node scripts/patch-telegram-webhook.mjs && next dev",
+    "build": "node scripts/patch-telegram-webhook.mjs && next build && node scripts/copy-standalone-assets.mjs",
     "start": "node .next/standalone/server.js",
     "lint": "eslint"
   },
