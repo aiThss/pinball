@@ -1,5 +1,6 @@
 import Dashboard from "@/components/Dashboard";
 import AdminLoginGate from "@/components/AdminLoginGate";
+import AdminRecordAction from "@/components/AdminRecordAction";
 import { verifyAdmin } from "@/lib/auth";
 
 export default async function AdminPage() {
@@ -9,5 +10,10 @@ export default async function AdminPage() {
     return <AdminLoginGate />;
   }
 
-  return <Dashboard mode="admin" />;
+  return (
+    <>
+      <Dashboard mode="admin" />
+      <AdminRecordAction adminDisplayName={process.env.ADMIN_DISPLAY_NAME || "Danh Thai"} />
+    </>
+  );
 }
