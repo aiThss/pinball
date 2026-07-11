@@ -132,15 +132,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     deposit.totalText = buildTotalText(getHeldCards(deposit), getHeldBalls(deposit));
-    deposit.updatedByName = auth.user.displayName;
-    deposit.history.push({
-      at: new Date(),
-      actorName: auth.user.displayName,
-      action: "UPDATE",
-      content: changes.join("; "),
-    });
 
-    await deposit.save();
+    // Telegram Mini App is an admin correction path, so it must not create audit traces.
+    await deposit.save({ timestamps: false });
 
     return NextResponse.json({
       deposit: serializeDeposit(deposit),
