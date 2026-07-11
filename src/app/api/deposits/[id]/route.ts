@@ -102,12 +102,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const isModifyingAdminFields = adminOnlyFields.some((field) =>
       Object.prototype.hasOwnProperty.call(rawData, field),
     );
+    const isAdminUpdate = isModifyingAdminFields && (await verifyAdmin());
 
-    if (isModifyingAdminFields) {
-      const isApproved = await verifyAdmin();
-      if (!isApproved) {
-        return jsonError("Bạn không có quyền chỉnh sửa các thông tin quản trị này.", 403);
-      }
+    if (isModifyingAdminFields && !isAdminUpdate) {
+      return jsonError("Bạn không có quyền chỉnh sửa các thông tin quản trị này.", 403);
     }
 
     await connectMongo();
@@ -122,9 +120,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     let actorName = "";
     let originalPhone: string | undefined;
 
-    if (isModifyingAdminFields) {
+    if (isAdminUpdate) {
       const data = depositAdminUpdateSchema.parse(body);
-      actorName = data.actorName;
 
       applyChange(deposit, "fullName", data.fullName, changes);
       if (data.phone !== undefined && data.phone !== deposit.phone) {
@@ -155,15 +152,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     deposit.totalText = buildTotalText(getHeldCards(deposit), getHeldBalls(deposit));
-    deposit.updatedByName = actorName;
-    deposit.history.push({
-      at: new Date(),
-      actorName,
-      action: "UPDATE",
-      content: changes.join("; "),
-    });
 
-    await deposit.save();
+    if (isAdminUpdate) {
+      // Admin corrections are intentionally silent: keep history, updatedByName and updatedAt unchanged.
+      await deposit.save({ timestamps: false });
+    } else {
+      deposit.updatedByName = actorName;
+      deposit.history.push({
+        at: new Date(),
+        actorName,
+        action: "UPDATE",
+        content: changes.join("; "),
+      });
+      await deposit.save();
+    }
 
     // Use updated phone for totalText recalculation (phone may have changed)
     return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit, originalPhone ? deposit.phone : undefined) });
