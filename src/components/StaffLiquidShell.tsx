@@ -49,24 +49,34 @@ function syncDocumentTheme(theme: StaffTheme) {
 }
 
 function getPageItems(totalPages: number, currentPage: number): PageItem[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
-
-  const pages = new Set<number>([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
-  if (currentPage <= 4) [2, 3, 4, 5].forEach((page) => pages.add(page));
-  if (currentPage >= totalPages - 3) {
-    [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1].forEach((page) => pages.add(page));
+  if (totalPages <= 6) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
 
-  const sorted = [...pages].filter((page) => page > 0 && page <= totalPages).sort((a, b) => a - b);
-  const items: PageItem[] = [];
-  sorted.forEach((page, index) => {
-    const previous = sorted[index - 1];
-    if (index > 0 && page - previous > 1) {
-      items.push(index === 1 ? "ellipsis-left" : "ellipsis-right");
-    }
-    items.push(page);
-  });
-  return items;
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, "ellipsis-right", totalPages];
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [
+      1,
+      "ellipsis-left",
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+
+  return [
+    1,
+    "ellipsis-left",
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    "ellipsis-right",
+    totalPages,
+  ];
 }
 
 export default function StaffLiquidShell({ children }: { children: ReactNode }) {
@@ -318,17 +328,19 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
       <div className={styles.backdrop} aria-hidden="true" />
       {quickActions}
       {pagination}
-      {showGateFooter ? (
-        <footer className={paginationStyles.gateFooter}>
-          <div className={paginationStyles.gateBrand}>© 2026 • Made by aiThs</div>
-          <div className={paginationStyles.gateContactLabel}>Contact for work</div>
-          <ChevronDown className={paginationStyles.gateArrow} aria-hidden="true" />
-          <a className={paginationStyles.gateEmail} href="mailto:danhthai4560@gmail.com">
-            danhthai4560@gmail.com
-          </a>
-        </footer>
-      ) : null}
       <div className={styles.content}>{children}</div>
+      <footer
+        className={`${paginationStyles.siteFooter} ${
+          showGateFooter ? paginationStyles.gateFooter : paginationStyles.dashboardFooter
+        }`}
+      >
+        <div className={paginationStyles.gateBrand}>© 2026 • Made by aiThs</div>
+        <div className={paginationStyles.gateContactLabel}>Contact for work</div>
+        <ChevronDown className={paginationStyles.gateArrow} aria-hidden="true" />
+        <a className={paginationStyles.gateEmail} href="mailto:danhthai4560@gmail.com">
+          danhthai4560@gmail.com
+        </a>
+      </footer>
     </div>
   );
 }
