@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Moon, Sun } from "lucide-react";
 import styles from "./StaffLiquidShell.module.css";
 
@@ -13,38 +13,57 @@ function getInitialTheme(): StaffTheme {
     return "light";
   }
 
-  const saved = window.localStorage.getItem(storageKey);
-  if (saved === "light" || saved === "dark") {
-    return saved;
+  try {
+    const saved = window.localStorage.getItem(storageKey);
+    if (saved === "light" || saved === "dark") {
+      return saved;
+    }
+  } catch {
+    // Fall back to the system preference when storage is unavailable.
   }
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function syncThemeColor(theme: StaffTheme) {
+function syncDocumentTheme(theme: StaffTheme) {
   const color = theme === "dark" ? "#07080a" : "#eef0f4";
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
   metas.forEach((meta) => meta.setAttribute("content", color));
+
+  document.documentElement.style.backgroundColor = color;
+  document.documentElement.style.colorScheme = theme;
+  document.body.style.backgroundColor = color;
 }
 
-export default function StaffLiquidShell({ children }: { children: React.ReactNode }) {
+export default function StaffLiquidShell({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<StaffTheme>("light");
 
   useEffect(() => {
     const initialTheme = getInitialTheme();
     const timer = window.setTimeout(() => {
       setTheme(initialTheme);
-      syncThemeColor(initialTheme);
+      syncDocumentTheme(initialTheme);
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      document.documentElement.style.removeProperty("background-color");
+      document.documentElement.style.removeProperty("color-scheme");
+      document.body.style.removeProperty("background-color");
+    };
   }, []);
 
   function toggleTheme() {
     setTheme((current) => {
       const next = current === "light" ? "dark" : "light";
-      window.localStorage.setItem(storageKey, next);
-      syncThemeColor(next);
+
+      try {
+        window.localStorage.setItem(storageKey, next);
+      } catch {
+        // Keep the current session theme usable even if storage is blocked.
+      }
+
+      syncDocumentTheme(next);
       return next;
     });
   }
