@@ -11,25 +11,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: nowrap;
   gap: 8px;
   width: 100%;
+  max-width: 100%;
   padding: 16px 12px 18px;
+  overflow: hidden;
   border-top: 1px solid var(--staff-divider);
 }
 
 .pageNumbers {
   display: flex;
   min-width: 0;
+  flex: 0 1 auto;
   align-items: center;
   justify-content: center;
+  flex-wrap: nowrap;
   gap: 5px;
-  flex-wrap: wrap;
 }
 
 .pageButton {
   display: inline-flex;
   width: 38px;
   height: 38px;
+  flex: 0 0 38px;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -86,25 +91,36 @@
   display: inline-flex;
   width: 24px;
   height: 38px;
+  flex: 0 0 24px;
   align-items: center;
   justify-content: center;
   color: var(--staff-text-muted);
   font-weight: 800;
 }
 
-.gateFooter {
-  position: fixed;
-  left: 50%;
-  bottom: max(12px, env(safe-area-inset-bottom));
+.siteFooter {
+  position: relative;
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  transform: translateX(-50%);
   color: var(--staff-text-secondary);
   text-align: center;
   pointer-events: auto;
+}
+
+.dashboardFooter {
+  width: 100%;
+  margin-top: 4px;
+  padding: 18px 16px max(18px, env(safe-area-inset-bottom));
+}
+
+.gateFooter {
+  position: fixed;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
 }
 
 .gateBrand {
@@ -171,12 +187,38 @@
   .pageButton {
     width: 35px;
     height: 35px;
+    flex-basis: 35px;
     font-size: 11px;
   }
 
   .ellipsis {
     width: 18px;
     height: 35px;
+    flex-basis: 18px;
+  }
+}
+
+@media (max-width: 340px) {
+  .pagination {
+    gap: 4px;
+    padding-inline: 5px;
+  }
+
+  .pageNumbers {
+    gap: 3px;
+  }
+
+  .pageButton {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    font-size: 10.5px;
+  }
+
+  .ellipsis {
+    width: 15px;
+    height: 32px;
+    flex-basis: 15px;
   }
 }
 
