@@ -1,7 +1,7 @@
 .quickActionsShell {
   --staff-action-blue: #087cff;
   --staff-action-green: #168a4a;
-  --staff-action-amber: #a56809;
+  --staff-action-orange: #e45f3f;
 }
 
 .quickActionsMount {
@@ -73,9 +73,9 @@
 }
 
 .renameAction {
-  color: var(--staff-action-amber);
-  border-color: color-mix(in srgb, var(--staff-action-amber) 24%, transparent);
-  background: color-mix(in srgb, var(--staff-action-amber) 9%, transparent);
+  color: var(--staff-action-orange);
+  border-color: color-mix(in srgb, var(--staff-action-orange) 28%, transparent);
+  background: color-mix(in srgb, var(--staff-action-orange) 11%, transparent);
 }
 
 .quickAction:hover,
@@ -95,7 +95,6 @@
   transform: scale(0.97);
 }
 
-/* The new segmented card replaces the two old header actions on staff pages. */
 .quickActionsShell :global(main > header a[href="/install"]),
 .quickActionsShell :global(main > header button[title="Đổi nhân viên"]) {
   display: none !important;
