@@ -85,28 +85,35 @@ export default function AdminRecordAction({ adminDisplayName }: { adminDisplayNa
     }
 
     let cancelled = false;
-    setAction(requestedAction);
-    setLoading(true);
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) {
+        return;
+      }
 
-    void apiRequest<{ deposit: Deposit }>(`/api/admin/deposits/${encodeURIComponent(recordId)}`)
-      .then((data) => {
-        if (cancelled) return;
-        setDeposit(data.deposit);
-        setEditForm(toEditForm(data.deposit));
-        clearActionUrl();
-      })
-      .catch((requestError) => {
-        if (cancelled) return;
-        setError(requestError instanceof Error ? requestError.message : "Không tải được bản ghi.");
-        clearActionUrl();
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      setAction(requestedAction);
+      setLoading(true);
+      setError(null);
+
+      void apiRequest<{ deposit: Deposit }>(`/api/admin/deposits/${encodeURIComponent(recordId)}`)
+        .then((data) => {
+          if (cancelled) return;
+          setDeposit(data.deposit);
+          setEditForm(toEditForm(data.deposit));
+          clearActionUrl();
+        })
+        .catch((requestError) => {
+          if (cancelled) return;
+          setError(requestError instanceof Error ? requestError.message : "Không tải được bản ghi.");
+          clearActionUrl();
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, []);
 

@@ -114,10 +114,22 @@ type RecentStaffUpdate = {
   content: string;
 };
 
+type CustomerDailyTotal = {
+  id: string;
+  fullName: string;
+  phone: string;
+  records: number;
+  cardsDeposited: number;
+  ballsDeposited: number;
+  cardsWithdrawn: number;
+  ballsWithdrawn: number;
+};
+
 type AdminDashboardResponse = {
   date: string;
   dateSummary: AdminDateSummary;
   recentUpdates: RecentStaffUpdate[];
+  customerDailyTotals: CustomerDailyTotal[];
 };
 
 type DepositSuggestion = {
@@ -486,6 +498,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [adminDashboardDate, setAdminDashboardDate] = useState(() => getHanoiNow().date);
   const [adminDateSummary, setAdminDateSummary] = useState<AdminDateSummary>(emptyAdminDateSummary);
   const [recentStaffUpdates, setRecentStaffUpdates] = useState<RecentStaffUpdate[]>([]);
+  const [customerDailyTotals, setCustomerDailyTotals] = useState<CustomerDailyTotal[]>([]);
   const [showRecentStaffUpdates, setShowRecentStaffUpdates] = useState(false);
   const [recentStaffUpdatesPage, setRecentStaffUpdatesPage] = useState(1);
   const [adminDashboardLoading, setAdminDashboardLoading] = useState(false);
@@ -622,6 +635,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       const data = await apiRequest<AdminDashboardResponse>(`/api/admin/dashboard?${params.toString()}`);
       setAdminDateSummary(data.dateSummary);
       setRecentStaffUpdates(data.recentUpdates);
+      setCustomerDailyTotals(data.customerDailyTotals ?? []);
       setRecentStaffUpdatesPage(1);
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không tải được bảng admin.");
@@ -1166,7 +1180,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         deposit.depositTime,
         deposit.cards,
         deposit.balls,
-        `${deposit.cards} - ${deposit.balls}`,
+        deposit.totalText,
+        deposit.cardAction,
+        deposit.ballAction,
         actorName(deposit, "created"),
       ]);
       const depositSheet: SheetData = [
@@ -1181,7 +1197,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           header("Giờ gửi"),
           header("Thẻ"),
           header("Bi"),
-          header("Tổng thẻ và bi"),
+          header("Tổng sau bản ghi"),
+          header("Gửi/Lấy thẻ"),
+          header("Gửi/Lấy bi"),
           header("Nhân viên tạo"),
         ],
         ...depositRows,
@@ -1198,7 +1216,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             { width: 12 },
             { width: 10 },
             { width: 10 },
-            { width: 18 },
+            { width: 22 },
+            { width: 14 },
+            { width: 14 },
             { width: 18 },
           ],
           stickyRowsCount: 4,
@@ -1417,6 +1437,51 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   <div className="text-xs font-semibold text-[#64748B]">Đã cập nhật</div>
                   <div className="mt-1 text-2xl font-bold">{adminDateSummary.recordsUpdated}</div>
                 </div>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-md border border-[#E5E7EB] bg-[#F8FAFC]">
+                <div className="flex flex-col gap-1 border-b border-[#E5E7EB] bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#0F172A]">Khách gửi trong ngày</h3>
+                    <p className="text-xs text-[#64748B]">Số thẻ/bi phát sinh theo từng khách</p>
+                  </div>
+                  <span className="text-xs font-semibold text-[#64748B]">
+                    {customerDailyTotals.length} khách
+                  </span>
+                </div>
+
+                {customerDailyTotals.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-[#64748B]">Chưa có khách gửi trong ngày này.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                      <thead className="text-xs font-bold uppercase text-[#334155]">
+                        <tr>
+                          <th className="px-3 py-2">Khách</th>
+                          <th className="px-3 py-2">SĐT</th>
+                          <th className="px-3 py-2 text-right">Thẻ gửi</th>
+                          <th className="px-3 py-2 text-right">Bi gửi</th>
+                          <th className="px-3 py-2 text-right">Thẻ lấy</th>
+                          <th className="px-3 py-2 text-right">Bi lấy</th>
+                          <th className="px-3 py-2 text-right">Bản ghi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5E7EB] bg-white">
+                        {customerDailyTotals.map((total) => (
+                          <tr key={total.id}>
+                            <td className="px-3 py-2 font-semibold text-[#0F172A]">{total.fullName}</td>
+                            <td className="px-3 py-2 text-[#2563EB]">{total.phone}</td>
+                            <td className="px-3 py-2 text-right font-bold">{total.cardsDeposited}</td>
+                            <td className="px-3 py-2 text-right font-semibold">{total.ballsDeposited}</td>
+                            <td className="px-3 py-2 text-right text-[#B91C1C]">{total.cardsWithdrawn}</td>
+                            <td className="px-3 py-2 text-right text-[#B45309]">{total.ballsWithdrawn}</td>
+                            <td className="px-3 py-2 text-right text-[#64748B]">{total.records}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
@@ -2470,7 +2535,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               ) : null}
 
               <label>
-                <span className={labelClass}>Thẻ còn lại</span>
+                <span className={labelClass}>
+                  {editingDeposit.cardAction === "Lấy thẻ" ? "Thẻ lấy trong bản ghi" : "Thẻ gửi trong bản ghi"}
+                </span>
                 <input
                   className={inputClass}
                   min="0"
@@ -2485,7 +2552,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 />
               </label>
               <label>
-                <span className={labelClass}>Bi còn lại</span>
+                <span className={labelClass}>
+                  {editingDeposit.ballAction === "Lấy bi" ? "Bi lấy trong bản ghi" : "Bi gửi trong bản ghi"}
+                </span>
                 <input
                   className={inputClass}
                   min="0"

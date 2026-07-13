@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError } from "@/lib/api";
+import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { verifyTelegramBotBearer } from "@/lib/telegram";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
@@ -27,6 +28,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     if (!deleted) {
       return jsonError("Không tìm thấy bản ghi.", 404);
     }
+
+    await rebuildCustomerDailyTotalsForDates([deleted.depositDate]);
 
     return NextResponse.json({
       ok: true,

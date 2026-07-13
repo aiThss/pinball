@@ -33,12 +33,20 @@ export async function GET() {
             _id: "$phone",
             totalCards: {
               $sum: {
-                $cond: [{ $ne: ["$cardAction", withdrawCardAction] }, "$cards", 0],
+                $cond: [
+                  { $ne: ["$cardAction", withdrawCardAction] },
+                  { $ifNull: ["$remainingCards", "$cards"] },
+                  0,
+                ],
               },
             },
             totalBalls: {
               $sum: {
-                $cond: [{ $ne: ["$ballAction", withdrawBallAction] }, "$balls", 0],
+                $cond: [
+                  { $ne: ["$ballAction", withdrawBallAction] },
+                  { $ifNull: ["$remainingBalls", "$balls"] },
+                  0,
+                ],
               },
             },
           },
@@ -75,7 +83,10 @@ export async function GET() {
           $match: {
             status: activeDepositStatus,
             cardAction: { $ne: withdrawCardAction },
-            cards: { $gt: 0 },
+            $or: [
+              { remainingCards: { $gt: 0 } },
+              { remainingCards: { $exists: false }, cards: { $gt: 0 } },
+            ],
           },
         },
         { $sort: { updatedAt: -1, createdAt: -1 } },
@@ -83,7 +94,7 @@ export async function GET() {
           $group: {
             _id: "$phone",
             fullName: { $first: "$fullName" },
-            totalCards: { $sum: "$cards" },
+            totalCards: { $sum: { $ifNull: ["$remainingCards", "$cards"] } },
             latestUpdatedAt: { $max: "$updatedAt" },
           },
         },

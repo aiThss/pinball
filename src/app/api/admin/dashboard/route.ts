@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError, parseError } from "@/lib/api";
 import { verifyAdmin } from "@/lib/auth";
+import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { getHanoiNow } from "@/lib/time";
-import { ballActions, cardActions } from "@/lib/validation";
+import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
+import { CustomerDailyDeposit } from "@/models/CustomerDailyDeposit";
 
 const depositCardAction = cardActions[0];
 const withdrawCardAction = cardActions[1];
 const depositBallAction = ballActions[0];
 const withdrawBallAction = ballActions[1];
+const canceledDepositStatus = depositStatuses[3];
 const adminDisplayName = process.env.ADMIN_DISPLAY_NAME || "Danh Thai";
 
 type DateTotals = {
@@ -36,6 +39,17 @@ type RecentStaffUpdate = {
   content: string;
 };
 
+type CustomerDailyTotal = {
+  _id: string;
+  fullName: string;
+  phone: string;
+  records: number;
+  cardsDeposited: number;
+  ballsDeposited: number;
+  cardsWithdrawn: number;
+  ballsWithdrawn: number;
+};
+
 function getHanoiDateBounds(date: string) {
   const start = new Date(`${date}T00:00:00+07:00`);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
@@ -55,9 +69,11 @@ export async function GET(request: NextRequest) {
     const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : getHanoiNow().date;
     const { start, end } = getHanoiDateBounds(date);
 
-    const [dateTotals, historyUpdatedRecords, updatedAtRecords, recentUpdates] = await Promise.all([
+    await rebuildCustomerDailyTotalsForDates([date]);
+
+    const [dateTotals, historyUpdatedRecords, updatedAtRecords, recentUpdates, customerDailyTotals] = await Promise.all([
       CustomerDeposit.aggregate<DateTotals>([
-        { $match: { depositDate: date } },
+        { $match: { depositDate: date, status: { $ne: canceledDepositStatus } } },
         {
           $group: {
             _id: null,
@@ -119,6 +135,23 @@ export async function GET(request: NextRequest) {
           },
         },
       ]),
+      CustomerDailyDeposit.aggregate<CustomerDailyTotal>([
+        { $match: { date } },
+        { $sort: { cardsDeposited: -1, ballsDeposited: -1, records: -1, fullName: 1 } },
+        { $limit: 100 },
+        {
+          $project: {
+            _id: { $toString: "$_id" },
+            fullName: 1,
+            phone: 1,
+            records: 1,
+            cardsDeposited: 1,
+            ballsDeposited: 1,
+            cardsWithdrawn: 1,
+            ballsWithdrawn: 1,
+          },
+        },
+      ]),
     ]);
 
     const totals = dateTotals[0];
@@ -146,6 +179,16 @@ export async function GET(request: NextRequest) {
         updatedByName: update.updatedByName,
         updatedAt: update.updatedAt.toISOString(),
         content: update.content,
+      })),
+      customerDailyTotals: customerDailyTotals.map((total) => ({
+        id: total._id,
+        fullName: total.fullName,
+        phone: total.phone,
+        records: total.records,
+        cardsDeposited: total.cardsDeposited,
+        ballsDeposited: total.ballsDeposited,
+        cardsWithdrawn: total.cardsWithdrawn,
+        ballsWithdrawn: total.ballsWithdrawn,
       })),
     });
   } catch (error) {

@@ -19,6 +19,8 @@ export interface ICustomerDeposit extends Document {
   ballAction: (typeof ballActions)[number];
   cards: number;
   balls: number;
+  remainingCards?: number;
+  remainingBalls?: number;
   totalText: string;
   status: (typeof depositStatuses)[number];
   createdBy?: Types.ObjectId;
@@ -103,6 +105,16 @@ const CustomerDepositSchema = new Schema<ICustomerDeposit>(
     balls: {
       type: Number,
       required: true,
+      min: 0,
+    },
+    remainingCards: {
+      type: Number,
+      required: false,
+      min: 0,
+    },
+    remainingBalls: {
+      type: Number,
+      required: false,
       min: 0,
     },
     totalText: {

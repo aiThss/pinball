@@ -75,8 +75,11 @@ npm run start
 Collection chính:
 
 - `customers_deposits`
+- `customers_daily_deposits`
 
-Schema chính gồm: `fullName`, `phone`, `depositDate`, `depositTime`, `cardAction`, `ballAction`, `cards`, `balls`, `totalText`, `status`, `createdAt`, `updatedAt`, `createdByName`, `updatedByName`, `history[]`.
+Schema `customers_deposits` gồm: `fullName`, `phone`, `depositDate`, `depositTime`, `cardAction`, `ballAction`, `cards`, `balls`, `remainingCards`, `remainingBalls`, `totalText`, `status`, `createdAt`, `updatedAt`, `createdByName`, `updatedByName`, `history[]`.
+
+`cards`/`balls` là số phát sinh của bản ghi để đối chiếu. `remainingCards`/`remainingBalls` là số còn đang giữ dùng cho phép trừ khi khách lấy lại. `customers_daily_deposits` lưu tổng phát sinh theo `date + phone` để admin xem mỗi khách gửi/lấy bao nhiêu trong ngày.
 
 ## Ghi chú vận hành
 

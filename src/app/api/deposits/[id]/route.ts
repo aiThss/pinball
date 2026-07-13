@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
+import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
-import { ballActions, cardActions, depositAdminUpdateSchema, depositStaffUpdateSchema, depositStatuses } from "@/lib/validation";
+import { ballActions, cardActions, depositAdminUpdateSchema, depositStaffUpdateSchema } from "@/lib/validation";
 import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 import { verifyAdmin } from "@/lib/auth";
 
@@ -21,7 +22,6 @@ const labels: Record<string, string> = {
   status: "Trạng thái",
 };
 const adminOnlyFields = ["depositDate", "depositTime"] as const;
-const activeDepositStatus = depositStatuses[0];
 const withdrawCardAction = cardActions[1];
 const withdrawBallAction = ballActions[1];
 
@@ -43,46 +43,62 @@ function applyChange<T extends keyof ICustomerDeposit>(
   deposit[field] = value;
 }
 
-function getHeldCards(deposit: ICustomerDeposit) {
-  return deposit.cardAction === withdrawCardAction ? 0 : deposit.cards;
-}
+function parseTotalText(value: string, fallbackCards: number, fallbackBalls: number) {
+  const match = value.match(/:\s*(-?\d+)\s*\|\s*[^:|]+:\s*(-?\d+)/u);
 
-function getHeldBalls(deposit: ICustomerDeposit) {
-  return deposit.ballAction === withdrawBallAction ? 0 : deposit.balls;
-}
-
-async function serializeWithActiveTotal(deposit: ICustomerDeposit, phone?: string) {
-  const lookupPhone = phone ?? deposit.phone;
-
-  if (deposit.status !== activeDepositStatus) {
-    return serializeDeposit(deposit);
+  if (!match) {
+    return {
+      cards: fallbackCards,
+      balls: fallbackBalls,
+    };
   }
 
-  const [activeTotal] = await CustomerDeposit.aggregate<{
-    totalCards: number;
-    totalBalls: number;
-  }>([
-    { $match: { phone: lookupPhone, status: activeDepositStatus } },
-    {
-      $group: {
-        _id: null,
-        totalCards: {
-          $sum: {
-            $cond: [{ $ne: ["$cardAction", withdrawCardAction] }, "$cards", 0],
-          },
-        },
-        totalBalls: {
-          $sum: {
-            $cond: [{ $ne: ["$ballAction", withdrawBallAction] }, "$balls", 0],
-          },
-        },
-      },
-    },
-  ]);
+  return {
+    cards: Number(match[1]),
+    balls: Number(match[2]),
+  };
+}
 
-  return serializeDeposit(deposit, {
-    totalText: buildTotalText(activeTotal?.totalCards ?? deposit.cards, activeTotal?.totalBalls ?? deposit.balls),
-  });
+function signedDelta(action: string, withdrawAction: string, before: number, after: number) {
+  const delta = after - before;
+
+  return action === withdrawAction ? -delta : delta;
+}
+
+function adjustSnapshotTotal(
+  deposit: ICustomerDeposit,
+  beforeCards: number,
+  beforeBalls: number,
+  beforeTotalText: string,
+) {
+  const previousTotal = parseTotalText(beforeTotalText, beforeCards, beforeBalls);
+
+  deposit.totalText = buildTotalText(
+    previousTotal.cards + signedDelta(deposit.cardAction, withdrawCardAction, beforeCards, deposit.cards),
+    previousTotal.balls + signedDelta(deposit.ballAction, withdrawBallAction, beforeBalls, deposit.balls),
+  );
+}
+
+function syncRemainingFields(
+  deposit: ICustomerDeposit,
+  beforeCards: number,
+  beforeBalls: number,
+  beforeRemainingCards: number | undefined,
+  beforeRemainingBalls: number | undefined,
+) {
+  if (deposit.cardAction === withdrawCardAction) {
+    deposit.remainingCards = 0;
+  } else {
+    const currentRemainingCards = beforeRemainingCards ?? beforeCards;
+    deposit.remainingCards = Math.max(0, currentRemainingCards + deposit.cards - beforeCards);
+  }
+
+  if (deposit.ballAction === withdrawBallAction) {
+    deposit.remainingBalls = 0;
+  } else {
+    const currentRemainingBalls = beforeRemainingBalls ?? beforeBalls;
+    deposit.remainingBalls = Math.max(0, currentRemainingBalls + deposit.balls - beforeBalls);
+  }
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -118,15 +134,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const changes: string[] = [];
     let actorName = "";
-    let originalPhone: string | undefined;
+    const beforeDepositDate = deposit.depositDate;
+    const beforeCards = deposit.cards;
+    const beforeBalls = deposit.balls;
+    const beforeRemainingCards = deposit.remainingCards;
+    const beforeRemainingBalls = deposit.remainingBalls;
+    const beforeTotalText = deposit.totalText;
 
     if (isAdminUpdate) {
       const data = depositAdminUpdateSchema.parse(body);
 
       applyChange(deposit, "fullName", data.fullName, changes);
-      if (data.phone !== undefined && data.phone !== deposit.phone) {
-        originalPhone = deposit.phone;
-      }
       applyChange(deposit, "phone", data.phone, changes);
       applyChange(deposit, "depositDate", data.depositDate, changes);
       applyChange(deposit, "depositTime", data.depositTime, changes);
@@ -138,9 +156,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       actorName = data.actorName;
 
       applyChange(deposit, "fullName", data.fullName, changes);
-      if (data.phone !== undefined && data.phone !== deposit.phone) {
-        originalPhone = deposit.phone;
-      }
       applyChange(deposit, "phone", data.phone, changes);
       applyChange(deposit, "cards", data.cards, changes);
       applyChange(deposit, "balls", data.balls, changes);
@@ -148,10 +163,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (changes.length === 0) {
-      return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit) });
+      return NextResponse.json({ deposit: serializeDeposit(deposit) });
     }
 
-    deposit.totalText = buildTotalText(getHeldCards(deposit), getHeldBalls(deposit));
+    syncRemainingFields(deposit, beforeCards, beforeBalls, beforeRemainingCards, beforeRemainingBalls);
+    adjustSnapshotTotal(deposit, beforeCards, beforeBalls, beforeTotalText);
 
     if (isAdminUpdate) {
       // Admin corrections are intentionally silent: keep history, updatedByName and updatedAt unchanged.
@@ -167,8 +183,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       await deposit.save();
     }
 
-    // Use updated phone for totalText recalculation (phone may have changed)
-    return NextResponse.json({ deposit: await serializeWithActiveTotal(deposit, originalPhone ? deposit.phone : undefined) });
+    await rebuildCustomerDailyTotalsForDates([beforeDepositDate, deposit.depositDate]);
+
+    return NextResponse.json({ deposit: serializeDeposit(deposit) });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }
@@ -193,6 +210,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     if (!deleted) {
       return jsonError("Không tìm thấy bản ghi.", 404);
     }
+
+    await rebuildCustomerDailyTotalsForDates([deleted.depositDate]);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
