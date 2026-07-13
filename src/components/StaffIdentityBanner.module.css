@@ -1,4 +1,7 @@
 .identityBannerShell :global(main > header) {
+  position: static !important;
+  top: auto !important;
+  z-index: auto !important;
   padding-top: 10px;
   border-bottom: 0 !important;
   background: transparent !important;
