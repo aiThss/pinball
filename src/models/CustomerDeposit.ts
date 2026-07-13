@@ -9,6 +9,12 @@ export interface IHistoryEntry {
   content: string;
 }
 
+export interface IWithdrawalAllocation {
+  sourceId: Types.ObjectId;
+  cards: number;
+  balls: number;
+}
+
 export interface ICustomerDeposit extends Document {
   _id: Types.ObjectId;
   fullName: string;
@@ -21,6 +27,7 @@ export interface ICustomerDeposit extends Document {
   balls: number;
   remainingCards?: number;
   remainingBalls?: number;
+  withdrawalAllocations?: IWithdrawalAllocation[];
   totalText: string;
   status: (typeof depositStatuses)[number];
   createdBy?: Types.ObjectId;
@@ -58,6 +65,26 @@ const HistorySchema = new Schema<IHistoryEntry>(
     },
   },
   { _id: true },
+);
+
+const WithdrawalAllocationSchema = new Schema<IWithdrawalAllocation>(
+  {
+    sourceId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+    },
+    cards: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    balls: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+  },
+  { _id: false },
 );
 
 const CustomerDepositSchema = new Schema<ICustomerDeposit>(
@@ -116,6 +143,10 @@ const CustomerDepositSchema = new Schema<ICustomerDeposit>(
       type: Number,
       required: false,
       min: 0,
+    },
+    withdrawalAllocations: {
+      type: [WithdrawalAllocationSchema],
+      default: [],
     },
     totalText: {
       type: String,

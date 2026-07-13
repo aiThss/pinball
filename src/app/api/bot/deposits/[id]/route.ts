@@ -4,6 +4,7 @@ import { jsonError, parseError } from "@/lib/api";
 import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { verifyTelegramBotBearer } from "@/lib/telegram";
+import { restoreDeletedWithdrawal } from "@/lib/withdrawal-recovery";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
 
 type RouteContext = {
@@ -23,11 +24,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     await connectMongo();
-    const deleted = await CustomerDeposit.findByIdAndDelete(id);
+    const deleted = await CustomerDeposit.findById(id);
 
     if (!deleted) {
       return jsonError("Không tìm thấy bản ghi.", 404);
     }
+
+    const restored = await restoreDeletedWithdrawal(deleted);
+    await CustomerDeposit.deleteOne({ _id: deleted._id });
 
     await rebuildCustomerDailyTotalsForDates([deleted.depositDate]);
 
@@ -35,6 +39,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       ok: true,
       id,
       fullName: deleted.fullName,
+      restoredCards: restored.cards,
+      restoredBalls: restored.balls,
     });
   } catch (error) {
     return jsonError(parseError(error), 500);

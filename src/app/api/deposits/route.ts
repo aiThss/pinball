@@ -13,7 +13,11 @@ import {
   depositStatuses,
   normalizePhone,
 } from "@/lib/validation";
-import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
+import {
+  CustomerDeposit,
+  type ICustomerDeposit,
+  type IWithdrawalAllocation,
+} from "@/models/CustomerDeposit";
 
 const defaultPage = 1;
 const defaultLimit = 100;
@@ -126,8 +130,13 @@ async function getActiveTotalByPhone(phone: string) {
   };
 }
 
-async function deductActiveCards(phone: string, cardsToTake: number, actorName: string) {
+async function deductActiveCards(
+  phone: string,
+  cardsToTake: number,
+  actorName: string,
+): Promise<IWithdrawalAllocation[]> {
   let remainingCards = cardsToTake;
+  const allocations: IWithdrawalAllocation[] = [];
   const activeDeposits = await CustomerDeposit.find({
     phone,
     status: activeDepositStatus,
@@ -147,6 +156,7 @@ async function deductActiveCards(phone: string, cardsToTake: number, actorName: 
     const deductedCards = Math.min(currentRemainingCards, remainingCards);
     activeDeposit.remainingCards = currentRemainingCards - deductedCards;
     remainingCards -= deductedCards;
+    allocations.push({ sourceId: activeDeposit._id, cards: deductedCards, balls: 0 });
 
     applyHeldTotalsToDeposit(activeDeposit);
     activeDeposit.updatedByName = actorName;
@@ -163,10 +173,16 @@ async function deductActiveCards(phone: string, cardsToTake: number, actorName: 
   if (remainingCards > 0) {
     throw new Error("Không đủ thẻ đang giữ để trừ.");
   }
+  return allocations;
 }
 
-async function deductActiveBalls(phone: string, ballsToTake: number, actorName: string) {
+async function deductActiveBalls(
+  phone: string,
+  ballsToTake: number,
+  actorName: string,
+): Promise<IWithdrawalAllocation[]> {
   let remainingBalls = ballsToTake;
+  const allocations: IWithdrawalAllocation[] = [];
   const activeDeposits = await CustomerDeposit.find({
     phone,
     status: activeDepositStatus,
@@ -186,6 +202,7 @@ async function deductActiveBalls(phone: string, ballsToTake: number, actorName: 
     const deductedBalls = Math.min(currentRemainingBalls, remainingBalls);
     activeDeposit.remainingBalls = currentRemainingBalls - deductedBalls;
     remainingBalls -= deductedBalls;
+    allocations.push({ sourceId: activeDeposit._id, cards: 0, balls: deductedBalls });
 
     applyHeldTotalsToDeposit(activeDeposit);
     activeDeposit.updatedByName = actorName;
@@ -202,6 +219,7 @@ async function deductActiveBalls(phone: string, ballsToTake: number, actorName: 
   if (remainingBalls > 0) {
     throw new Error("Không đủ bi đang giữ để trừ.");
   }
+  return allocations;
 }
 
 export async function GET(request: NextRequest) {
@@ -331,6 +349,7 @@ export async function POST(request: NextRequest) {
       balls: data.balls,
       remainingCards: isTakingCards ? 0 : data.cards,
       remainingBalls: isTakingBalls ? 0 : data.balls,
+      withdrawalAllocations: [],
       totalText: buildTotalText(nextCards, nextBalls),
       status,
       createdByName: data.actorName,
@@ -346,11 +365,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (isTakingCards && data.cards > 0) {
-      await deductActiveCards(data.phone, data.cards, data.actorName);
+      deposit.withdrawalAllocations?.push(
+        ...(await deductActiveCards(data.phone, data.cards, data.actorName)),
+      );
     }
 
     if (isTakingBalls && data.balls > 0) {
-      await deductActiveBalls(data.phone, data.balls, data.actorName);
+      deposit.withdrawalAllocations?.push(
+        ...(await deductActiveBalls(data.phone, data.balls, data.actorName)),
+      );
+    }
+
+    if (deposit.withdrawalAllocations && deposit.withdrawalAllocations.length > 0) {
+      await deposit.save();
     }
 
     await rebuildCustomerDailyTotalsForDates([depositDate]);
