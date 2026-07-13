@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Moon, Sun } from "lucide-react";
 import styles from "./StaffLiquidShell.module.css";
+import roundedStyles from "./StaffRoundedCards.module.css";
 
 type StaffTheme = "light" | "dark";
 
@@ -69,7 +70,10 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
   }
 
   return (
-    <div className={styles.shell} data-staff-theme={theme}>
+    <div
+      className={`${styles.shell} ${roundedStyles.roundedShell}`}
+      data-staff-theme={theme}
+    >
       <div className={styles.backdrop} aria-hidden="true" />
 
       <button
