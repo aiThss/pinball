@@ -6,6 +6,7 @@ import { Download, LogOut, Moon, Sun } from "lucide-react";
 import styles from "./StaffLiquidShell.module.css";
 import roundedStyles from "./StaffRoundedCards.module.css";
 import quickStyles from "./StaffQuickActions.module.css";
+import darkStyles from "./StaffDarkContrast.module.css";
 
 type StaffTheme = "light" | "dark";
 
@@ -155,7 +156,7 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
   return (
     <div
       ref={shellRef}
-      className={`${styles.shell} ${roundedStyles.roundedShell} ${quickStyles.quickActionsShell}`}
+      className={`${styles.shell} ${roundedStyles.roundedShell} ${quickStyles.quickActionsShell} ${darkStyles.darkContrastShell}`}
       data-staff-theme={theme}
     >
       <div className={styles.backdrop} aria-hidden="true" />
