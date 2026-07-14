@@ -98,6 +98,8 @@
 }
 
 .identityBannerShell :global(main > header p) {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: flex-start;
   gap: 7px;
@@ -110,12 +112,13 @@
 .identityBannerShell :global(main > header p)::before {
   content: "";
   position: relative;
-  z-index: 3;
+  z-index: 99;
   width: 8px;
   height: 8px;
   flex: 0 0 auto;
   align-self: flex-start;
-  margin-top: 1px;
+  margin-top: 0;
+  transform: translateY(-5px);
   border-radius: 999px;
   background: #22c55e;
   box-shadow:
