@@ -135,7 +135,7 @@
 
 .copyrightSignature {
   color: var(--staff-text);
-  font-family: var(--font-brittany-signature), cursive;
+  font-family: var(--font-allura), cursive;
   font-size: 24px;
   font-weight: 400;
   letter-spacing: 1px;

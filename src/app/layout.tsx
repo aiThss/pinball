@@ -5,9 +5,9 @@ import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import { APP_DESCRIPTION, APP_NAME, APP_SHORT_NAME, APP_URL, THEME_COLOR } from "@/lib/app-info";
 import "./globals.css";
 
-const brittanySignature = localFont({
-  src: "../../public/fonts/iCielBrittanySignature-Regular.ttf",
-  variable: "--font-brittany-signature",
+const allura = localFont({
+  src: "../../public/fonts/Allura-Regular.ttf",
+  variable: "--font-allura",
   display: "swap",
   weight: "400",
   style: "normal",
@@ -54,7 +54,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="h-full antialiased">
-      <body className={`flex min-h-[100dvh] flex-col ${brittanySignature.variable}`}>
+      <body className={`flex min-h-[100dvh] flex-col ${allura.variable}`}>
         <ServiceWorkerRegistration />
         <InstallNudge />
         {children}
