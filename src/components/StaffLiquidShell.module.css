@@ -152,24 +152,6 @@
   background: transparent !important;
 }
 
-.content > :global(main) > :global(header) {
-  border-color: var(--staff-border-soft) !important;
-  background: linear-gradient(145deg, var(--staff-glass-strong-from), var(--staff-glass-strong-to)) !important;
-  backdrop-filter: blur(28px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
-  box-shadow:
-    0 10px 32px rgba(15, 23, 42, 0.08),
-    inset 0 1px 0 var(--staff-highlight),
-    inset 0 -1px 0 var(--staff-border-soft) !important;
-}
-
-.shell[data-staff-theme="dark"] .content > :global(main) > :global(header) {
-  box-shadow:
-    0 14px 38px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 var(--staff-highlight),
-    inset 0 -1px 0 var(--staff-border-soft) !important;
-}
-
 .content > :global(main) > :global(div) > :global(aside) {
   border-color: var(--staff-border-soft) !important;
   background: linear-gradient(160deg, var(--staff-glass-from), var(--staff-glass-to)) !important;
