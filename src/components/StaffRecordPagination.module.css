@@ -157,17 +157,12 @@
 }
 
 .gateEmail {
-  display: inline-flex;
+  display: inline-block;
   max-width: calc(100vw - 24px);
-  min-height: 40px;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--staff-email-border);
-  background: var(--staff-email-background);
-  box-shadow: var(--staff-email-shadow);
-  color: var(--staff-email-text);
+  padding-block: 3px;
+  background: var(--staff-email-text-fill);
+  background-clip: text;
+  color: var(--staff-email-color);
   font-family: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: clamp(10px, 2.8vw, 12px);
   font-weight: 600;
@@ -175,42 +170,41 @@
   line-height: 1.2;
   text-decoration: none;
   text-wrap: nowrap;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  backdrop-filter: blur(12px) saturate(125%);
-  -webkit-backdrop-filter: blur(12px) saturate(125%);
+  text-shadow: var(--staff-email-text-shadow);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease,
+    text-shadow 180ms ease,
     transform 180ms ease;
 }
 
 .paginationShell[data-staff-theme="light"] .gateEmail {
-  --staff-email-text: #ffffff;
-  --staff-email-border: rgba(255, 255, 255, 0.34);
-  --staff-email-background: linear-gradient(135deg, rgba(10, 11, 14, 0.94), rgba(37, 39, 45, 0.84));
-  --staff-email-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 9px 22px rgba(13, 15, 20, 0.2);
+  --staff-email-color: #111216;
+  --staff-email-text-fill: linear-gradient(180deg, #3c3e43 0%, #090a0c 52%, #24262a 100%);
+  --staff-email-text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 10px rgba(15, 17, 22, 0.14);
+  --staff-email-hover-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 4px 14px rgba(15, 17, 22, 0.24);
 }
 
 .paginationShell[data-staff-theme="dark"] .gateEmail {
-  --staff-email-text: #16171a;
-  --staff-email-border: rgba(255, 255, 255, 0.72);
-  --staff-email-background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(226, 228, 233, 0.88));
-  --staff-email-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 9px 22px rgba(0, 0, 0, 0.28);
+  --staff-email-color: #ffffff;
+  --staff-email-text-fill: linear-gradient(180deg, #ffffff 0%, #f7f8fb 50%, #c8ccd5 100%);
+  --staff-email-text-shadow:
+    0 0 2px rgba(255, 255, 255, 0.9),
+    0 0 9px rgba(255, 255, 255, 0.48),
+    0 0 20px rgba(214, 223, 255, 0.24);
+  --staff-email-hover-shadow:
+    0 0 3px rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(255, 255, 255, 0.62),
+    0 0 24px rgba(214, 223, 255, 0.34);
 }
 
 .gateEmail:hover {
-  border-color: var(--staff-email-text);
-  box-shadow:
-    var(--staff-email-shadow),
-    0 0 0 3px color-mix(in srgb, var(--staff-email-text) 9%, transparent);
+  text-shadow: var(--staff-email-hover-shadow);
   transform: translateY(-1px);
 }
 
@@ -219,7 +213,7 @@
 }
 
 .gateEmail:focus-visible {
-  outline: 2px solid var(--staff-email-text);
+  outline: 2px solid var(--staff-email-color);
   outline-offset: 3px;
 }
 
