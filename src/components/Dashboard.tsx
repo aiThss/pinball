@@ -255,40 +255,25 @@ function ballActionClass(ballAction: BallAction) {
     : "bg-[#E0F2FE] text-[#0369A1]";
 }
 
-function actorName(deposit: Deposit, field: "created" | "updated") {
-  if (field === "created") {
-    return deposit.createdByName || deposit.createdBy?.displayName || "N/A";
-  }
-
-  return deposit.updatedByName || deposit.updatedBy?.displayName || "N/A";
+function creatorName(deposit: Deposit) {
+  return deposit.createdByName || deposit.createdBy?.displayName || "N/A";
 }
 
 function getLatestUpdateEntry(deposit: Deposit) {
   return [...deposit.history].reverse().find((entry) => entry.action === "UPDATE");
 }
 
-function hasTimestampUpdate(deposit: Deposit) {
-  const createdAt = Date.parse(deposit.createdAt);
-  const updatedAt = Date.parse(deposit.updatedAt);
-
-  if (!Number.isFinite(createdAt) || !Number.isFinite(updatedAt)) {
-    return Boolean(deposit.createdAt && deposit.updatedAt && deposit.createdAt !== deposit.updatedAt);
-  }
-
-  return updatedAt !== createdAt;
-}
-
 function getRecordUpdateInfo(deposit: Deposit) {
   const latestUpdate = getLatestUpdateEntry(deposit);
 
-  if (!latestUpdate && !hasTimestampUpdate(deposit)) {
+  if (!latestUpdate) {
     return null;
   }
 
   return {
-    actorName: latestUpdate?.actorName || actorName(deposit, "updated"),
-    at: latestUpdate?.at || deposit.updatedAt,
-    content: latestUpdate?.content ?? "",
+    actorName: latestUpdate.actorName,
+    at: latestUpdate.at,
+    content: latestUpdate.content,
   };
 }
 
@@ -1183,7 +1168,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         deposit.totalText,
         deposit.cardAction,
         deposit.ballAction,
-        actorName(deposit, "created"),
+        creatorName(deposit),
       ]);
       const depositSheet: SheetData = [
         [titleCell],
@@ -2141,7 +2126,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
                   <div className="mt-3 space-y-1 text-xs text-[#64748B]">
                     <div>
-                      Tạo bởi: {actorName(deposit, "created")} lúc {formatShortDateTime(deposit.createdAt)}
+                      Tạo bởi: {creatorName(deposit)} lúc {formatShortDateTime(deposit.createdAt)}
                     </div>
                     <CompactUpdateInfo
                       changeClassName="line-clamp-1 text-xs text-[#475569]"
@@ -2287,7 +2272,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                         </td>
                         <td className="px-5 py-4">
                           <div className="text-xs text-[#64748B]">
-                            Tạo bởi: {actorName(deposit, "created")} lúc {formatShortDateTime(deposit.createdAt)}
+                            Tạo bởi: {creatorName(deposit)} lúc {formatShortDateTime(deposit.createdAt)}
                           </div>
                           <CompactUpdateInfo
                             changeClassName="line-clamp-2 text-xs text-[#475569]"

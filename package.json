@@ -6,7 +6,8 @@
     "dev": "node scripts/patch-telegram-webhook.mjs && next dev",
     "build": "node scripts/patch-telegram-webhook.mjs && next build && node scripts/copy-standalone-assets.mjs",
     "start": "node .next/standalone/server.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:history-actions": "node scripts/migrate-history-actions.mjs"
   },
   "dependencies": {
     "@types/web-push": "^3.6.4",

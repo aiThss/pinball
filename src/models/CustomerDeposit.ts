@@ -5,7 +5,7 @@ export interface IHistoryEntry {
   at: Date;
   actorId?: Types.ObjectId;
   actorName: string;
-  action: "CREATE" | "UPDATE";
+  action: "CREATE" | "UPDATE" | "AUTO_DEDUCT" | "AUTO_RESTORE";
   content: string;
 }
 
@@ -56,7 +56,7 @@ const HistorySchema = new Schema<IHistoryEntry>(
     },
     action: {
       type: String,
-      enum: ["CREATE", "UPDATE"],
+      enum: ["CREATE", "UPDATE", "AUTO_DEDUCT", "AUTO_RESTORE"],
       required: true,
     },
     content: {

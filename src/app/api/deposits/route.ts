@@ -159,11 +159,10 @@ async function deductActiveCards(
     allocations.push({ sourceId: activeDeposit._id, cards: deductedCards, balls: 0 });
 
     applyHeldTotalsToDeposit(activeDeposit);
-    activeDeposit.updatedByName = actorName;
     activeDeposit.history.push({
       at: new Date(),
       actorName,
-      action: "UPDATE",
+      action: "AUTO_DEDUCT",
       content: `Tự trừ ${deductedCards} thẻ do tạo bản ghi lấy thẻ. Thẻ còn đang giữ: ${activeDeposit.remainingCards}.`,
     });
 
@@ -205,11 +204,10 @@ async function deductActiveBalls(
     allocations.push({ sourceId: activeDeposit._id, cards: 0, balls: deductedBalls });
 
     applyHeldTotalsToDeposit(activeDeposit);
-    activeDeposit.updatedByName = actorName;
     activeDeposit.history.push({
       at: new Date(),
       actorName,
-      action: "UPDATE",
+      action: "AUTO_DEDUCT",
       content: `Tự trừ ${deductedBalls} bi do tạo bản ghi lấy bi. Bi còn đang giữ: ${activeDeposit.remainingBalls}.`,
     });
 

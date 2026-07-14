@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     await rebuildCustomerDailyTotalsForDates([date]);
 
-    const [dateTotals, historyUpdatedRecords, updatedAtRecords, recentUpdates, customerDailyTotals] = await Promise.all([
+    const [dateTotals, historyUpdatedRecords, recentUpdates, customerDailyTotals] = await Promise.all([
       CustomerDeposit.aggregate<DateTotals>([
         { $match: { depositDate: date, status: { $ne: canceledDepositStatus } } },
         {
@@ -100,15 +100,6 @@ export async function GET(request: NextRequest) {
           $match: {
             "history.action": "UPDATE",
             "history.at": { $gte: start, $lt: end },
-          },
-        },
-        { $group: { _id: "$_id" } },
-      ]),
-      CustomerDeposit.aggregate<UpdatedRecord>([
-        {
-          $match: {
-            updatedAt: { $gte: start, $lt: end },
-            $expr: { $ne: ["$updatedAt", "$createdAt"] },
           },
         },
         { $group: { _id: "$_id" } },
@@ -155,10 +146,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const totals = dateTotals[0];
-    const updatedRecordIds = new Set([
-      ...historyUpdatedRecords.map((record) => String(record._id)),
-      ...updatedAtRecords.map((record) => String(record._id)),
-    ]);
+    const updatedRecordIds = new Set(historyUpdatedRecords.map((record) => String(record._id)));
 
     return NextResponse.json({
       date,

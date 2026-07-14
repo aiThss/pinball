@@ -227,11 +227,10 @@ export async function restoreDeletedWithdrawal(deleted: ICustomerDeposit): Promi
       source.status = activeDepositStatus;
     }
 
-    source.updatedByName = actorName;
     source.history.push({
       at: new Date(),
       actorName,
-      action: "UPDATE",
+      action: "AUTO_RESTORE",
       content: `Ho\u00e0n ${allocation.cards} th\u1ebb, ${allocation.balls} bi do xo\u00e1 b\u1ea3n ghi l\u1ea5y.`,
     });
     await source.save();
