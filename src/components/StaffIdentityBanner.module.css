@@ -104,6 +104,7 @@
   align-items: flex-start;
   gap: 7px;
   margin-top: 4px;
+  padding-left: 8px;
   color: var(--staff-text-secondary) !important;
   font-size: 13px !important;
   line-height: 1.25;
