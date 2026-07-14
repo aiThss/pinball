@@ -334,7 +334,10 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
           showGateFooter ? paginationStyles.gateFooter : paginationStyles.dashboardFooter
         }`}
       >
-        <div className={paginationStyles.gateBrand}>© 2026 • Made by aiThs</div>
+        <div className={paginationStyles.gateBrand}>
+          <span>© 2026 • Made by</span>
+          <span className={paginationStyles.copyrightSignature}>aiThs</span>
+        </div>
         <div className={paginationStyles.gateContactLabel}>Contact for work</div>
         <ChevronDown className={paginationStyles.gateArrow} aria-hidden="true" />
         <a className={paginationStyles.gateEmail} href="mailto:danhthai4560@gmail.com">
