@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
@@ -24,6 +24,26 @@ type PageItem = number | "ellipsis-left" | "ellipsis-right";
 const themeStorageKey = "pinball_staff_theme";
 const staffNameStorageKey = "pinball_staff_name";
 const recordsPerPage = 6;
+
+function capitalizeStaffName(value: string) {
+  return value.replace(/(^|\s)(\p{L})/gu, (_, separator: string, letter: string) =>
+    `${separator}${letter.toLocaleUpperCase("vi-VN")}`,
+  );
+}
+
+function handleStaffNameChange(event: FormEvent<HTMLDivElement>) {
+  const target = event.target;
+
+  if (!(target instanceof HTMLInputElement) || target.placeholder !== "Ví dụ: Danh Thai") {
+    return;
+  }
+
+  const capitalizedName = capitalizeStaffName(target.value);
+
+  if (capitalizedName !== target.value) {
+    target.value = capitalizedName;
+  }
+}
 
 function getInitialTheme(): StaffTheme {
   if (typeof window === "undefined") return "light";
@@ -324,6 +344,7 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
       ref={shellRef}
       className={`${styles.shell} ${roundedStyles.roundedShell} ${quickStyles.quickActionsShell} ${darkStyles.darkContrastShell} ${identityStyles.identityBannerShell} ${paginationStyles.paginationShell}`}
       data-staff-theme={theme}
+      onChangeCapture={handleStaffNameChange}
     >
       <div className={styles.backdrop} aria-hidden="true" />
       {quickActions}
