@@ -2,6 +2,19 @@
 
 import { useEffect } from "react";
 
+const summaryLabelSelector =
+  'main section[class*="grid-cols-2"][class*="md:grid-cols-4"] [class*="text-xs"][class*="font-semibold"]';
+
+function normalizeSummaryLabel() {
+  const label = [...document.querySelectorAll<HTMLElement>(summaryLabelSelector)].find(
+    (element) => element.textContent?.trim() === "Khách đang gửi",
+  );
+
+  if (label) {
+    label.textContent = "Khách gửi";
+  }
+}
+
 export default function StaffLoadAllRecords() {
   useEffect(() => {
     let pending = false;
@@ -9,6 +22,8 @@ export default function StaffLoadAllRecords() {
     let retryTimer = 0;
 
     const scan = () => {
+      normalizeSummaryLabel();
+
       if (pending || attempts >= 20) return;
 
       const loadMoreButton = [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
