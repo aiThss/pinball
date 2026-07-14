@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import InstallNudge from "@/components/InstallNudge";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
@@ -11,6 +12,12 @@ const allura = localFont({
   display: "swap",
   weight: "400",
   style: "normal",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -54,7 +61,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="h-full antialiased">
-      <body className={`flex min-h-[100dvh] flex-col ${allura.variable}`}>
+      <body className={`flex min-h-[100dvh] flex-col ${allura.variable} ${jetbrainsMono.variable}`}>
         <ServiceWorkerRegistration />
         <InstallNudge />
         {children}
