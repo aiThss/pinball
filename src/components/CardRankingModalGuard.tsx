@@ -88,6 +88,9 @@ function applyOpaqueModalTheme(modal: HTMLElement) {
     "max-height",
     "calc(100dvh - max(24px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)))",
   );
+  setImportant(panel, "overflow", "hidden");
+  setImportant(panel, "border-radius", "28px");
+  setImportant(panel, "background-clip", "padding-box");
   setImportant(panel, "color", dark ? "#f5f5f7" : "#111827");
   setImportant(panel, "background", dark ? "#202126" : "#ffffff");
   setImportant(panel, "border-color", dark ? "#505158" : "#c7ced8");
@@ -99,6 +102,10 @@ function applyOpaqueModalTheme(modal: HTMLElement) {
   setImportant(panel, "touch-action", "auto");
   setImportant(panel, "isolation", "isolate");
 
+  setImportant(header, "overflow", "hidden");
+  setImportant(header, "border-top-left-radius", "inherit");
+  setImportant(header, "border-top-right-radius", "inherit");
+  setImportant(header, "background-clip", "padding-box");
   setImportant(header, "background", dark ? "#202126" : "#ffffff");
   setImportant(header, "border-color", dark ? "#45464c" : "#d6dbe3");
   setImportant(header, "backdrop-filter", "none");
