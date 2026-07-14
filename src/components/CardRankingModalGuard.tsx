@@ -75,7 +75,7 @@ function applyOpaqueModalTheme(modal: HTMLElement) {
   setImportant(modal, "-webkit-backdrop-filter", "none");
   setImportant(modal, "overflow", "hidden");
   setImportant(modal, "overscroll-behavior", "none");
-  setImportant(modal, "touch-action", "pan-y");
+  setImportant(modal, "touch-action", "auto");
   setImportant(modal, "isolation", "isolate");
   setImportant(modal, "padding-top", "max(12px, env(safe-area-inset-top))");
   setImportant(modal, "padding-bottom", "max(0px, env(safe-area-inset-bottom))");
@@ -96,7 +96,7 @@ function applyOpaqueModalTheme(modal: HTMLElement) {
   setImportant(panel, "box-shadow", dark ? "0 28px 80px #000000" : "0 28px 80px #66708566");
   setImportant(panel, "opacity", "1");
   setImportant(panel, "filter", "none");
-  setImportant(panel, "touch-action", "pan-y");
+  setImportant(panel, "touch-action", "auto");
   setImportant(panel, "isolation", "isolate");
 
   setImportant(header, "background", dark ? "#202126" : "#ffffff");
@@ -267,13 +267,6 @@ function activateGuard(modal: HTMLElement): ActiveGuard {
     }
   };
 
-  const blockBackdropGesture = (event: Event) => {
-    if (event.target === modal) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  };
-
   const handlePopState = () => {
     if (modal.isConnected) {
       getCloseButton()?.click();
@@ -293,9 +286,6 @@ function activateGuard(modal: HTMLElement): ActiveGuard {
 
   document.addEventListener("keydown", handleKeyDown, true);
   document.addEventListener("focusin", handleFocusIn, true);
-  modal.addEventListener("pointerdown", blockBackdropGesture, { passive: false });
-  modal.addEventListener("touchmove", blockBackdropGesture, { passive: false });
-  modal.addEventListener("wheel", blockBackdropGesture, { passive: false });
   window.addEventListener("popstate", handlePopState);
 
   window.requestAnimationFrame(() => {
@@ -311,9 +301,6 @@ function activateGuard(modal: HTMLElement): ActiveGuard {
       themeObserver?.disconnect();
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("focusin", handleFocusIn, true);
-      modal.removeEventListener("pointerdown", blockBackdropGesture);
-      modal.removeEventListener("touchmove", blockBackdropGesture);
-      modal.removeEventListener("wheel", blockBackdropGesture);
       window.removeEventListener("popstate", handlePopState);
 
       restoreStyles(html, htmlStyles);
