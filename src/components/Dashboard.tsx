@@ -508,8 +508,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
   const [showCardRanking, setShowCardRanking] = useState(false);
   const [showActiveCustomers, setShowActiveCustomers] = useState(false);
-  const [currentActiveCustomersPage, setCurrentActiveCustomersPage] = useState(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<DepositFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<DepositFilters>(emptyFilters);
   const [depositForm, setDepositForm] = useState(() => getDefaultDepositForm());
@@ -533,27 +531,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     balls: "0",
     status: "Đang gửi" as Status,
   });
-
-  const scrollToActivePage = (pageIdx: number) => {
-    if (carouselRef.current) {
-      const width = carouselRef.current.clientWidth;
-      carouselRef.current.scrollTo({
-        left: pageIdx * width,
-        behavior: "smooth",
-      });
-      setCurrentActiveCustomersPage(pageIdx);
-    }
-  };
-
-  const handleCarouselScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const clientWidth = e.currentTarget.clientWidth;
-    if (clientWidth > 0) {
-      const newPage = Math.round(e.currentTarget.scrollLeft / clientWidth);
-      if (newPage !== currentActiveCustomersPage) {
-        setCurrentActiveCustomersPage(newPage);
-      }
-    }
-  };
 
   useEffect(() => {
     if (isAdmin) {
@@ -2513,7 +2490,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </div>
             </div>
 
-            <div className="overflow-y-auto p-4 sm:p-5 flex-1 min-h-0 flex flex-col">
+            <div className="overflow-y-auto p-4 sm:p-5">
               {(() => {
                 const activeCustomers = summary.activeCustomers ?? [];
                 if (activeCustomers.length === 0) {
@@ -2524,101 +2501,32 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   );
                 }
 
-                const itemsPerPage = 5;
-                const pages = [];
-                for (let i = 0; i < activeCustomers.length; i += itemsPerPage) {
-                  pages.push(activeCustomers.slice(i, i + itemsPerPage));
-                }
-
                 return (
-                  <div className="flex flex-col flex-1 min-h-0">
-                    <div className="relative flex-1 min-h-0 overflow-hidden">
-                      <div
-                        ref={carouselRef}
-                        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none h-full"
-                        onScroll={handleCarouselScroll}
+                  <ol className="space-y-2">
+                    {activeCustomers.map((customer, index) => (
+                      <li
+                        className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3"
+                        key={customer.phone}
                       >
-                        {pages.map((pageItems, pageIdx) => (
-                          <div key={pageIdx} className="w-full shrink-0 snap-align-start px-0.5">
-                            <ol className="space-y-2">
-                              {pageItems.map((customer, itemIdx) => {
-                                const globalIdx = pageIdx * itemsPerPage + itemIdx;
-                                return (
-                                  <li
-                                    className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3"
-                                    key={customer.phone}
-                                  >
-                                    <div
-                                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold bg-white text-[#334155]"
-                                    >
-                                      {String(globalIdx + 1).padStart(2, "0")}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="truncate text-base font-bold text-[#0F172A]">
-                                        {customer.fullName || "Khách chưa tên"}
-                                      </div>
-                                      <div className="truncate text-sm text-[#64748B]">{customer.phone || "Không có SĐT"}</div>
-                                    </div>
-                                    <div className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold text-[#111827] shadow-sm">
-                                      {customer.totalCards > 0 && `${customer.totalCards} thẻ`}
-                                      {customer.totalCards > 0 && customer.totalBalls > 0 && " · "}
-                                      {customer.totalBalls > 0 && `${customer.totalBalls} bi`}
-                                    </div>
-                                  </li>
-                                );
-                              })}
-                            </ol>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {pages.length > 1 && (
-                      <div className="mt-4 shrink-0 flex items-center justify-between border-t border-[#E5E7EB] pt-3">
-                        <button
-                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#334155] hover:bg-[#F8FAFC] disabled:opacity-50"
-                          disabled={currentActiveCustomersPage === 0}
-                          onClick={() => scrollToActivePage(currentActiveCustomersPage - 1)}
-                          type="button"
-                          aria-label="Trang trước"
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold bg-white text-[#334155]"
                         >
-                          <ChevronLeft size={20} />
-                        </button>
-                        
-                        <div className="flex items-center gap-1.5">
-                          {pages.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => scrollToActivePage(idx)}
-                              className={`h-2.5 rounded-full transition-all duration-300 ${
-                                idx === currentActiveCustomersPage
-                                  ? "w-6 bg-[#0369A1]"
-                                  : "w-2.5 bg-[#CBD5E1] hover:bg-[#94A3B8]"
-                              }`}
-                              type="button"
-                              aria-label={`Tới trang ${idx + 1}`}
-                            />
-                          ))}
+                          {String(index + 1).padStart(2, "0")}
                         </div>
-
-                        <button
-                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#334155] hover:bg-[#F8FAFC] disabled:opacity-50"
-                          disabled={currentActiveCustomersPage === pages.length - 1}
-                          onClick={() => scrollToActivePage(currentActiveCustomersPage + 1)}
-                          type="button"
-                          aria-label="Trang sau"
-                        >
-                          <ChevronRight size={20} />
-                        </button>
-                      </div>
-                    )}
-                    
-                    {pages.length > 1 && (
-                      <div className="mt-1 text-center text-xs text-[#64748B]">
-                        Trang {currentActiveCustomersPage + 1} / {pages.length} · Vuốt để xem thêm
-                      </div>
-                    )}
-                  </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-base font-bold text-[#0F172A]">
+                            {customer.fullName || "Khách chưa tên"}
+                          </div>
+                          <div className="truncate text-sm text-[#64748B]">{customer.phone || "Không có SĐT"}</div>
+                        </div>
+                        <div className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold text-[#111827] shadow-sm">
+                          {customer.totalCards > 0 && `${customer.totalCards} thẻ`}
+                          {customer.totalCards > 0 && customer.totalBalls > 0 && " · "}
+                          {customer.totalBalls > 0 && `${customer.totalBalls} bi`}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
                 );
               })()}
             </div>

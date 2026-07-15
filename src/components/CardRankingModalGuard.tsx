@@ -59,7 +59,6 @@ function isDarkTheme(modal: HTMLElement) {
 
 function applyOpaqueModalTheme(modal: HTMLElement) {
   const dark = isDarkTheme(modal);
-  const isActiveCustomers = modal.getAttribute("aria-labelledby") === "active-customers-title";
   const panel = modal.firstElementChild instanceof HTMLElement ? modal.firstElementChild : null;
   const header = panel?.firstElementChild instanceof HTMLElement ? panel.firstElementChild : null;
   const list = header?.nextElementSibling instanceof HTMLElement ? header.nextElementSibling : null;
@@ -116,10 +115,10 @@ function applyOpaqueModalTheme(modal: HTMLElement) {
 
   setImportant(list, "min-height", "0");
   setImportant(list, "background", dark ? "#202126" : "#ffffff");
-  setImportant(list, "overflow-y", isActiveCustomers ? "hidden" : "auto");
+  setImportant(list, "overflow-y", "auto");
   setImportant(list, "overscroll-behavior", "contain");
   setImportant(list, "-webkit-overflow-scrolling", "touch");
-  setImportant(list, "touch-action", isActiveCustomers ? "pan-x pan-y" : "pan-y");
+  setImportant(list, "touch-action", "pan-y");
   setImportant(list, "scrollbar-gutter", "stable");
   setImportant(list, "opacity", "1");
 
