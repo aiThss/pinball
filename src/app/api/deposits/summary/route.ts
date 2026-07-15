@@ -15,12 +15,19 @@ type CardRanking = {
   totalCards: number;
 };
 
+type ActiveCustomer = {
+  fullName: string;
+  phone: string;
+  totalCards: number;
+  totalBalls: number;
+};
+
 export async function GET() {
   try {
     await connectMongo();
     const today = getHanoiNow().date;
 
-    const [activeSummaries, todayDeposits, historySummaries, cardRankings] = await Promise.all([
+    const [activeSummaries, todayDeposits, historySummaries, cardRankings, activeCustomers] = await Promise.all([
       CustomerDeposit.aggregate<{
         activeDeposits: number;
         totalCards: number;
@@ -110,6 +117,57 @@ export async function GET() {
           },
         },
       ]),
+      CustomerDeposit.aggregate<ActiveCustomer>([
+        {
+          $match: {
+            status: activeDepositStatus,
+          },
+        },
+        { $sort: { updatedAt: -1, createdAt: -1 } },
+        {
+          $group: {
+            _id: "$phone",
+            fullName: { $first: "$fullName" },
+            totalCards: {
+              $sum: {
+                $cond: [
+                  { $ne: ["$cardAction", withdrawCardAction] },
+                  { $ifNull: ["$remainingCards", "$cards"] },
+                  0,
+                ],
+              },
+            },
+            totalBalls: {
+              $sum: {
+                $cond: [
+                  { $ne: ["$ballAction", withdrawBallAction] },
+                  { $ifNull: ["$remainingBalls", "$balls"] },
+                  0,
+                ],
+              },
+            },
+            latestUpdatedAt: { $max: "$updatedAt" },
+          },
+        },
+        {
+          $match: {
+            $or: [
+              { totalCards: { $gt: 0 } },
+              { totalBalls: { $gt: 0 } },
+            ],
+          },
+        },
+        { $sort: { totalCards: -1, totalBalls: -1, latestUpdatedAt: -1, fullName: 1 } },
+        {
+          $project: {
+            _id: 0,
+            fullName: 1,
+            phone: "$_id",
+            totalCards: 1,
+            totalBalls: 1,
+          },
+        },
+      ]),
     ]);
     const activeSummary = activeSummaries[0];
     const historySummary = historySummaries[0];
@@ -121,6 +179,7 @@ export async function GET() {
       todayDeposits,
       historyEntries: historySummary?.historyEntries ?? 0,
       cardRankings,
+      activeCustomers,
     });
   } catch (error) {
     return jsonError(parseError(error), 500);
