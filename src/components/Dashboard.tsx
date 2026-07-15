@@ -2549,7 +2549,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                                     key={customer.phone}
                                   >
                                     <div
-                                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold bg-[#E2E8F0] text-[#334155]"
+                                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold bg-white text-[#334155]"
                                     >
                                       {String(globalIdx + 1).padStart(2, "0")}
                                     </div>
@@ -2559,17 +2559,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                                       </div>
                                       <div className="truncate text-sm text-[#64748B]">{customer.phone || "Không có SĐT"}</div>
                                     </div>
-                                    <div className="flex shrink-0 flex-col gap-1 items-end">
-                                      {customer.totalCards > 0 && (
-                                        <div className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-200">
-                                          {customer.totalCards} thẻ
-                                        </div>
-                                      )}
-                                      {customer.totalBalls > 0 && (
-                                        <div className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
-                                          {customer.totalBalls} bi
-                                        </div>
-                                      )}
+                                    <div className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold text-[#111827] shadow-sm">
+                                      {customer.totalCards > 0 && `${customer.totalCards} thẻ`}
+                                      {customer.totalCards > 0 && customer.totalBalls > 0 && " · "}
+                                      {customer.totalBalls > 0 && `${customer.totalBalls} bi`}
                                     </div>
                                   </li>
                                 );
