@@ -1610,7 +1610,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             <button
               aria-expanded={showActiveCustomers}
               aria-haspopup="dialog"
-              className="rounded-lg border border-[#E5E7EB] bg-white p-4 text-left shadow-sm transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#64748B]/30 sm:p-5"
+              className="rounded-lg border border-[#E5E7EB] bg-white p-4 text-left shadow-sm transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#64748B]/30 sm:p-5 text-[#0F172A] dark:text-[#F8FAFC]"
               onClick={() => setShowActiveCustomers(true)}
               type="button"
             >
