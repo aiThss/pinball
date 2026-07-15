@@ -1620,7 +1620,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-[#334155] sm:text-sm">Khách đang gửi</div>
-                  <div className="text-2xl font-bold sm:text-3xl">{activeDeposits}</div>
+                  <div className="text-2xl font-bold sm:text-3xl text-[#111827] dark:text-[#f5f5f7]">{activeDeposits}</div>
                 </div>
               </div>
             </button>
