@@ -39,6 +39,13 @@ export interface ICustomerDeposit extends Document {
   updatedAt: Date;
 }
 
+function getDepositTimestamp(depositDate: string, depositTime: string) {
+  const normalizedTime = depositTime.length === 5 ? `${depositTime}:00` : depositTime;
+  const timestamp = new Date(`${depositDate}T${normalizedTime}+07:00`);
+
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+}
+
 const HistorySchema = new Schema<IHistoryEntry>(
   {
     at: {
@@ -189,6 +196,30 @@ const CustomerDepositSchema = new Schema<ICustomerDeposit>(
     timestamps: true,
   },
 );
+
+CustomerDepositSchema.pre("save", function syncCreatedAtWithDepositDateTime() {
+  if (!this.isNew && !this.isModified("depositDate") && !this.isModified("depositTime")) {
+    return;
+  }
+
+  const depositTimestamp = getDepositTimestamp(this.depositDate, this.depositTime);
+
+  if (!depositTimestamp) {
+    return;
+  }
+
+  this.createdAt = depositTimestamp;
+
+  if (this.isNew) {
+    this.updatedAt = depositTimestamp;
+  }
+
+  const createHistoryEntry = this.history.find((entry) => entry.action === "CREATE");
+
+  if (createHistoryEntry) {
+    createHistoryEntry.at = depositTimestamp;
+  }
+});
 
 CustomerDepositSchema.index({ createdAt: -1 });
 CustomerDepositSchema.index({ fullName: "text", phone: "text" });
