@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { buildTotalText } from "@/lib/time";
 import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
 import {
   CustomerDeposit,
@@ -163,6 +164,36 @@ function getRestoredActorName(deleted: ICustomerDeposit) {
   return deleted.updatedByName || deleted.createdByName || "H\u1ec7 th\u1ed1ng";
 }
 
+function parseSnapshotTotal(deposit: ICustomerDeposit) {
+  const match = deposit.totalText.match(/:\s*(-?\d+)\s*\|\s*[^:|]+:\s*(-?\d+)/u);
+
+  if (!match) {
+    return { cards: 0, balls: 0 };
+  }
+
+  return { cards: Number(match[1]), balls: Number(match[2]) };
+}
+
+async function restoreLaterSnapshotTotals(deleted: ICustomerDeposit, restored: RestoredAmounts) {
+  if (restored.cards === 0 && restored.balls === 0) {
+    return;
+  }
+
+  const laterRecords = await CustomerDeposit.find({
+    phone: deleted.phone,
+    _id: { $ne: deleted._id },
+    createdAt: { $gt: deleted.createdAt },
+  });
+
+  await Promise.all(
+    laterRecords.map(async (record) => {
+      const total = parseSnapshotTotal(record);
+      record.totalText = buildTotalText(total.cards + restored.cards, total.balls + restored.balls);
+      await record.save({ timestamps: false });
+    }),
+  );
+}
+
 export async function restoreDeletedWithdrawal(deleted: ICustomerDeposit): Promise<RestoredAmounts> {
   const required = requiredWithdrawalAmounts(deleted);
   const allocations = await resolveAllocations(deleted, required);
@@ -235,6 +266,9 @@ export async function restoreDeletedWithdrawal(deleted: ICustomerDeposit): Promi
     });
     await source.save();
   }
+
+  // Restore the balance snapshot displayed on records created after this withdrawal.
+  await restoreLaterSnapshotTotals(deleted, required);
 
   return required;
 }
