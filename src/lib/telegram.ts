@@ -23,7 +23,7 @@ function safeCompare(provided: string, expected: string) {
 }
 
 function getTelegramBotToken() {
-  return process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+  return (process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN)?.trim() || "";
 }
 
 function getTelegramAdminUserIds() {

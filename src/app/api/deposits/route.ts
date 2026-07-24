@@ -399,7 +399,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Gửi webhook thông báo tới Telegram Bot (nếu có cấu hình)
-    const webhookUrl = process.env.TELEGRAM_BOT_WEBHOOK_URL;
+    const webhookUrl =
+      process.env.TELEGRAM_BOT_WEBHOOK_URL ||
+      process.env.PINBALL_BOT_WEBHOOK_URL ||
+      process.env.BOT_WEBHOOK_URL;
     if (webhookUrl) {
       void fetch(webhookUrl, {
         method: "POST",
