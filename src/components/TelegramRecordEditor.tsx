@@ -186,6 +186,18 @@ export default function TelegramRecordEditor({ recordId }: { recordId: string })
     }
   }, [isDirty, webApp]);
 
+  useEffect(() => {
+    if (!error) return;
+
+    const timer = window.setTimeout(() => {
+      setError(null);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [error]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form || !initData || !deposit) return;

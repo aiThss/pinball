@@ -488,6 +488,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [clock, setClock] = useState<ReturnType<typeof getHanoiParts> | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [summary, setSummary] = useState<DepositSummary>(emptySummary);
@@ -611,35 +613,51 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     setNotice({ type, text });
   }, []);
 
-  const loadSummary = useCallback(async () => {
-    try {
-      const data = await apiRequest<DepositSummary>("/api/deposits/summary");
-      setSummary(data);
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không tải được tổng.");
-    }
-  }, [showNotice]);
+  const loadSummary = useCallback(
+    async (silent = false) => {
+      try {
+        const data = await apiRequest<DepositSummary>("/api/deposits/summary");
+        setSummary(data);
+      } catch (error) {
+        if (!silent) {
+          showNotice("error", error instanceof Error ? error.message : "Không tải được tổng.");
+        }
+      }
+    },
+    [showNotice],
+  );
 
-  const loadAdminDashboard = useCallback(async (date: string) => {
-    if (!isAdmin) {
-      return;
-    }
+  const loadAdminDashboard = useCallback(
+    async (date: string, silent = false) => {
+      if (!isAdmin) {
+        return;
+      }
 
-    setAdminDashboardLoading(true);
+      if (!silent) {
+        setAdminDashboardLoading(true);
+      }
 
-    try {
-      const params = new URLSearchParams({ date });
-      const data = await apiRequest<AdminDashboardResponse>(`/api/admin/dashboard?${params.toString()}`);
-      setAdminDateSummary(data.dateSummary);
-      setRecentStaffUpdates(data.recentUpdates);
-      setCustomerDailyTotals(data.customerDailyTotals ?? []);
-      setRecentStaffUpdatesPage(1);
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không tải được bảng admin.");
-    } finally {
-      setAdminDashboardLoading(false);
-    }
-  }, [isAdmin, showNotice]);
+      try {
+        const params = new URLSearchParams({ date });
+        const data = await apiRequest<AdminDashboardResponse>(`/api/admin/dashboard?${params.toString()}`);
+        setAdminDateSummary(data.dateSummary);
+        setRecentStaffUpdates(data.recentUpdates);
+        setCustomerDailyTotals(data.customerDailyTotals ?? []);
+        if (!silent) {
+          setRecentStaffUpdatesPage(1);
+        }
+      } catch (error) {
+        if (!silent) {
+          showNotice("error", error instanceof Error ? error.message : "Không tải được bảng admin.");
+        }
+      } finally {
+        if (!silent) {
+          setAdminDashboardLoading(false);
+        }
+      }
+    },
+    [isAdmin, showNotice],
+  );
 
   const buildDepositQuery = useCallback(
     (filterValues: DepositFilters, pageToLoad: number, limit: number) => {
@@ -671,25 +689,52 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     [isAdmin],
   );
 
-  const loadDeposits = useCallback(async (filterValues: DepositFilters, pageToLoad = 1, append = false) => {
-    setLoading(true);
+  const loadDeposits = useCallback(
+    async (filterValues: DepositFilters, pageToLoad = 1, append = false, silent = false) => {
+      if (!silent) {
+        setLoading(true);
+      }
 
-    try {
-      const params = buildDepositQuery(filterValues, pageToLoad, depositPageLimit);
-      const data = await apiRequest<DepositListResponse>(`/api/deposits?${params.toString()}`);
-      setDeposits((current) => (append ? [...current, ...data.deposits] : data.deposits));
-      setPagination({
-        total: data.total,
-        page: data.page,
-        limit: data.limit,
-        hasMore: data.hasMore,
-      });
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Không tải được dữ liệu.");
-    } finally {
-      setLoading(false);
-    }
-  }, [buildDepositQuery, showNotice]);
+      try {
+        const params = buildDepositQuery(filterValues, pageToLoad, depositPageLimit);
+        const data = await apiRequest<DepositListResponse>(`/api/deposits?${params.toString()}`);
+        setDeposits((current) => (append ? [...current, ...data.deposits] : data.deposits));
+        setPagination({
+          total: data.total,
+          page: data.page,
+          limit: data.limit,
+          hasMore: data.hasMore,
+        });
+      } catch (error) {
+        if (!silent) {
+          showNotice("error", error instanceof Error ? error.message : "Không tải được dữ liệu.");
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [buildDepositQuery, showNotice],
+  );
+
+  const refreshData = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      setIsRefreshing(true);
+
+      try {
+        await Promise.all([
+          loadSummary(silent),
+          loadDeposits(appliedFilters, 1, false, silent),
+          isAdmin ? loadAdminDashboard(adminDashboardDate, silent) : Promise.resolve(),
+        ]);
+      } finally {
+        setIsRefreshing(false);
+      }
+    },
+    [adminDashboardDate, appliedFilters, isAdmin, loadAdminDashboard, loadDeposits, loadSummary],
+  );
 
   const fetchAllDeposits = useCallback(async (filterValues: DepositFilters) => {
     const allDeposits: Deposit[] = [];
@@ -710,6 +755,20 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
     return allDeposits;
   }, [buildDepositQuery]);
+
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setNotice(null);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [notice]);
 
   useEffect(() => {
     if (!staffName) {
@@ -735,6 +794,22 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
     return () => window.clearTimeout(timeoutId);
   }, [adminDashboardDate, isAdmin, loadAdminDashboard, staffName]);
+
+  useEffect(() => {
+    if (!staffName || !autoRefreshEnabled) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshData({ silent: true });
+      }
+    }, 10000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [autoRefreshEnabled, refreshData, staffName]);
 
   useEffect(() => {
     if (normalizedDepositPhone.length < minPhoneSuggestionDigits) {
@@ -901,11 +976,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }
 
   function handleReloadDeposits() {
-    void loadSummary();
-    void loadDeposits(appliedFilters, 1);
-    if (isAdmin) {
-      void loadAdminDashboard(adminDashboardDate);
-    }
+    void refreshData({ silent: false });
   }
 
   function handleLoadMore() {
@@ -1923,18 +1994,58 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           </section>
 
           <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-base font-bold">Lịch sử bản ghi</h2>
-              {selectedHistoryCustomer ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold">Lịch sử bản ghi</h2>
+                {isRefreshing ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-[#64748B]">
+                    <RefreshCw className="animate-spin text-[#2563EB]" size={12} />
+                    <span className="hidden sm:inline">Đang cập nhật...</span>
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedHistoryCustomer ? (
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-1 text-xs font-semibold text-[#334155] transition hover:bg-[#EEF2F7]"
+                    onClick={handleClearFilters}
+                    type="button"
+                  >
+                    <X aria-hidden="true" size={12} />
+                    Xóa lọc
+                  </button>
+                ) : null}
+
                 <button
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-1 text-xs font-semibold text-[#334155] transition hover:bg-[#EEF2F7]"
-                  onClick={handleClearFilters}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                    autoRefreshEnabled
+                      ? "border-[#86EFAC] bg-[#DCFCE7] text-[#166534]"
+                      : "border-[#CBD5E1] bg-[#F8FAFC] text-[#64748B]"
+                  }`}
+                  onClick={() => setAutoRefreshEnabled((prev) => !prev)}
+                  title={autoRefreshEnabled ? "Tắt tự động làm mới (mỗi 10s)" : "Bật tự động làm mới (mỗi 10s)"}
                   type="button"
                 >
-                  <X aria-hidden="true" size={12} />
-                  Xóa lọc
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      autoRefreshEnabled ? "bg-[#16A34A] animate-pulse" : "bg-[#94A3B8]"
+                    }`}
+                  />
+                  <span>Tự động</span>
                 </button>
-              ) : null}
+
+                <button
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#111827] bg-[#111827] px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1F2937] active:scale-95 disabled:opacity-50"
+                  disabled={isRefreshing}
+                  onClick={() => void refreshData({ silent: false })}
+                  title="Làm mới lịch sử bản ghi ngay"
+                  type="button"
+                >
+                  <RefreshCw className={isRefreshing ? "animate-spin" : ""} aria-hidden="true" size={13} />
+                  <span>Làm mới</span>
+                </button>
+              </div>
             </div>
 
             {/* Selected customer preview */}
