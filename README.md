@@ -1,5 +1,17 @@
 # Ký gửi PINBALL
 
+<p align="center">
+  <a href="https://github.com/aiThss/pinball/releases/latest">
+    <img src="https://img.shields.io/github/v/release/aiThss/pinball?logo=github&color=007ec6&label=Release" alt="Release" />
+  </a>
+  <a href="https://github.com/aiThss/pinball/releases/latest">
+    <img src="https://img.shields.io/badge/Download-APK-2496ED?logo=android&logoColor=white" alt="Download APK" />
+  </a>
+  <img src="https://img.shields.io/badge/PWA-Ready-16A34A?logo=pwa&logoColor=white" alt="PWA Ready" />
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white" alt="Docker Ready" />
+</p>
+
 Web app nội bộ để nhân viên lưu và truy xuất khách gửi giữ thẻ đổi quà và bi pinball.
 
 ## Stack
@@ -51,6 +63,15 @@ Mở trang `/install` trên domain production để xem hướng dẫn cài app 
 - Chrome desktop: bấm biểu tượng cài đặt trên thanh địa chỉ, hoặc vào menu Chrome và chọn cài trang này dưới dạng ứng dụng.
 
 Nếu máy đã từng cài bản icon lỗi, hãy xóa icon cũ khỏi màn hình chính rồi cài lại từ `/install`.
+
+## Android APK
+
+APK là WebView wrapper độc lập, không phụ thuộc shortcut/PWA do Chrome tạo. App tải trực tiếp
+`https://pinball.babyress.games` và giữ phiên đăng nhập trong WebView.
+
+- Tải bản mới nhất tại [GitHub Releases](https://github.com/aiThss/pinball/releases/latest).
+- Source Android nằm trong `android/`.
+- Workflow `.github/workflows/android-apk.yml` tự build và tạo Release `v0.0.1` khi source Android được đưa lên `main`.
 
 ## Production
 

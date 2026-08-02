@@ -43,3 +43,8 @@ next-prod.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Android
+/android/.gradle/
+/android/local.properties
+/android/**/build/

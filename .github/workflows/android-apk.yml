@@ -1,0 +1,45 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build installable APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Name APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk pinball-v0.0.1.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinball-v0.0.1-apk
+          path: pinball-v0.0.1.apk
+
+      - name: Publish GitHub Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v0.0.1" pinball-v0.0.1.apk --target "$GITHUB_SHA" --title "PINBALL v0.0.1" --notes "Android WebView wrapper độc lập cho pinball.babyress.games."
