@@ -17,6 +17,13 @@ type DailyReportTotals = {
   ballsDeposited: number;
 };
 
+type CustomerDailyReport = {
+  _id: string;
+  fullName: string;
+  cardsDeposited: number;
+  ballsDeposited: number;
+};
+
 function getHanoiDate() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -41,30 +48,48 @@ export async function GET(request: NextRequest) {
 
     await connectMongo();
 
-    const [totals] = await CustomerDeposit.aggregate<DailyReportTotals>([
-      {
-        $match: {
-          depositDate: date,
-          status: { $ne: canceledDepositStatus },
-          $or: [
-            { cardAction: depositCardAction },
-            { ballAction: depositBallAction },
-          ],
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalRecords: { $sum: 1 },
-          uniqueCustomers: { $addToSet: "$phone" },
-          cardsDeposited: {
-            $sum: { $cond: [{ $eq: ["$cardAction", depositCardAction] }, "$cards", 0] },
+    const match = {
+      depositDate: date,
+      status: { $ne: canceledDepositStatus },
+      $or: [
+        { cardAction: depositCardAction },
+        { ballAction: depositBallAction },
+      ],
+    };
+    const [[totals], customers] = await Promise.all([
+      CustomerDeposit.aggregate<DailyReportTotals>([
+        { $match: match },
+        {
+          $group: {
+            _id: null,
+            totalRecords: { $sum: 1 },
+            uniqueCustomers: { $addToSet: "$phone" },
+            cardsDeposited: {
+              $sum: { $cond: [{ $eq: ["$cardAction", depositCardAction] }, "$cards", 0] },
+            },
+            ballsDeposited: {
+              $sum: { $cond: [{ $eq: ["$ballAction", depositBallAction] }, "$balls", 0] },
+            },
           },
-          ballsDeposited: {
-            $sum: { $cond: [{ $eq: ["$ballAction", depositBallAction] }, "$balls", 0] },
+        },
+      ]),
+      CustomerDeposit.aggregate<CustomerDailyReport>([
+        { $match: match },
+        { $sort: { updatedAt: -1, createdAt: -1 } },
+        {
+          $group: {
+            _id: "$phone",
+            fullName: { $first: "$fullName" },
+            cardsDeposited: {
+              $sum: { $cond: [{ $eq: ["$cardAction", depositCardAction] }, "$cards", 0] },
+            },
+            ballsDeposited: {
+              $sum: { $cond: [{ $eq: ["$ballAction", depositBallAction] }, "$balls", 0] },
+            },
           },
         },
-      },
+        { $sort: { cardsDeposited: -1, ballsDeposited: -1, fullName: 1 } },
+      ]),
     ]);
 
     return NextResponse.json({
@@ -73,6 +98,11 @@ export async function GET(request: NextRequest) {
       uniqueCustomers: totals?.uniqueCustomers.length ?? 0,
       cardsDeposited: totals?.cardsDeposited ?? 0,
       ballsDeposited: totals?.ballsDeposited ?? 0,
+      customers: customers.map((customer) => ({
+        fullName: customer.fullName,
+        cardsDeposited: customer.cardsDeposited,
+        ballsDeposited: customer.ballsDeposited,
+      })),
     });
   } catch (error) {
     return jsonError(parseError(error), 500);
