@@ -2646,8 +2646,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       ) : null}
 
       {editingDeposit ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0F172A]/50 px-3 py-0 sm:items-center sm:px-4 sm:py-6">
-          <section className="max-h-[92svh] w-full max-w-2xl overflow-y-auto rounded-t-lg border border-[#E5E7EB] bg-white p-4 shadow-xl sm:rounded-lg sm:p-5">
+        <div
+          aria-label="Update deposit"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#0F172A]/50 px-3 py-0 sm:items-center sm:px-4 sm:py-6"
+          data-modal-kind="edit-deposit"
+          role="dialog"
+        >
+          <section className="flex max-h-[92svh] w-full max-w-2xl flex-col overflow-hidden rounded-t-lg border border-[#E5E7EB] bg-white p-4 shadow-xl sm:rounded-lg sm:p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-bold">Cập nhật gửi giữ</h2>
               <button
@@ -2660,7 +2666,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </button>
             </div>
 
-            <form className="grid gap-3 sm:grid-cols-2 sm:gap-4" onSubmit={handleUpdateDeposit}>
+            <form
+              className="grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain sm:grid-cols-2 sm:gap-4"
+              onSubmit={handleUpdateDeposit}
+            >
               {/* fullName and phone: editable by everyone */}
               <label>
                 <span className={labelClass}>Họ và tên</span>

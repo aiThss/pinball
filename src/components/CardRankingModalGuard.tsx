@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 const modalSelector =
-  '[role="dialog"][aria-modal="true"][aria-labelledby="card-ranking-title"], [role="dialog"][aria-modal="true"][aria-labelledby="active-customers-title"]';
+  '[role="dialog"][aria-modal="true"][aria-labelledby="card-ranking-title"], [role="dialog"][aria-modal="true"][aria-labelledby="active-customers-title"], [role="dialog"][aria-modal="true"][data-modal-kind="edit-deposit"]';
 const closeButtonSelector =
   'button[aria-label="Đóng bảng xếp hạng"], button[aria-label="Đóng danh sách khách đang gửi"]';
 const historyStateKey = "__pinballCardRankingModal";
@@ -234,7 +234,9 @@ function activateGuard(modal: HTMLElement): ActiveGuard {
     window.location.href,
   );
 
-  const getCloseButton = () => modal.querySelector<HTMLButtonElement>(closeButtonSelector);
+  const getCloseButton = () =>
+    modal.querySelector<HTMLButtonElement>(closeButtonSelector) ??
+    modal.querySelector<HTMLButtonElement>("button");
   const getFocusableElements = () =>
     Array.from(
       modal.querySelectorAll<HTMLElement>(
