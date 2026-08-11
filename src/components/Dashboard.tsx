@@ -1445,15 +1445,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
         <section className="space-y-4 px-3 py-4 pb-8 sm:px-4 lg:space-y-5 lg:px-6">
           {isAdmin ? (
-            <div className="flex sm:items-center sm:justify-end">
-              <Link className={secondaryButton} href="/">
-                <Ticket aria-hidden="true" size={18} />
-                Xem trang nhân viên
-              </Link>
-            </div>
-          ) : null}
-
-          {isAdmin ? (
             <section className="rounded-lg border border-[#CBD5E1] bg-white p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -1521,8 +1512,44 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 {customerDailyTotals.length === 0 ? (
                   <div className="px-3 py-4 text-sm text-[#64748B]">Chưa có khách gửi trong ngày này.</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                  <>
+                    <div className="grid gap-2 p-3 sm:hidden">
+                      {customerDailyTotals.map((total) => (
+                        <article className="rounded-md border border-[#E5E7EB] bg-white p-3" key={total.id}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate font-bold text-[#0F172A]">{total.fullName}</div>
+                              <a className="mt-1 block text-sm font-semibold text-[#2563EB]" href={`tel:${total.phone}`}>
+                                {total.phone}
+                              </a>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-[#F1F5F9] px-2.5 py-1 text-xs font-semibold text-[#64748B]">
+                              {total.records} bản ghi
+                            </span>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                            <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
+                              <div className="text-xs font-semibold text-[#64748B]">Thẻ gửi</div>
+                              <div className="mt-1 text-lg font-bold">{total.cardsDeposited}</div>
+                            </div>
+                            <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
+                              <div className="text-xs font-semibold text-[#64748B]">Bi gửi</div>
+                              <div className="mt-1 text-lg font-bold">{total.ballsDeposited}</div>
+                            </div>
+                            <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
+                              <div className="text-xs font-semibold text-[#64748B]">Thẻ lấy</div>
+                              <div className="mt-1 text-lg font-bold text-[#B91C1C]">{total.cardsWithdrawn}</div>
+                            </div>
+                            <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
+                              <div className="text-xs font-semibold text-[#64748B]">Bi lấy</div>
+                              <div className="mt-1 text-lg font-bold text-[#B45309]">{total.ballsWithdrawn}</div>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                    <div className="hidden overflow-x-auto sm:block">
+                      <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                       <thead className="text-xs font-bold uppercase text-[#334155]">
                         <tr>
                           <th className="px-3 py-2">Khách</th>
@@ -1547,8 +1574,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
-                  </div>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
 

@@ -10,6 +10,7 @@ import {
   LogOut,
   Moon,
   Sun,
+  Ticket,
 } from "lucide-react";
 import styles from "./StaffLiquidShell.module.css";
 import roundedStyles from "./StaffRoundedCards.module.css";
@@ -19,9 +20,9 @@ import identityStyles from "./StaffIdentityBanner.module.css";
 import paginationStyles from "./StaffRecordPagination.module.css";
 
 type StaffTheme = "light" | "dark";
+type ShellMode = "staff" | "admin";
 type PageItem = number | "ellipsis-left" | "ellipsis-right";
 
-const themeStorageKey = "pinball_staff_theme";
 const staffNameStorageKey = "pinball_staff_name";
 const recordsPerPage = 6;
 
@@ -31,7 +32,11 @@ function capitalizeStaffName(value: string) {
   );
 }
 
-function handleStaffNameChange(event: FormEvent<HTMLDivElement>) {
+function handleStaffNameChange(event: FormEvent<HTMLDivElement>, mode: ShellMode) {
+  if (mode !== "staff") {
+    return;
+  }
+
   const target = event.target;
 
   if (!(target instanceof HTMLInputElement) || target.placeholder !== "Ví dụ: Danh Thai") {
@@ -45,7 +50,7 @@ function handleStaffNameChange(event: FormEvent<HTMLDivElement>) {
   }
 }
 
-function getInitialTheme(): StaffTheme {
+function getInitialTheme(themeStorageKey: string): StaffTheme {
   if (typeof window === "undefined") return "light";
 
   try {
@@ -99,7 +104,13 @@ function getPageItems(totalPages: number, currentPage: number): PageItem[] {
   ];
 }
 
-export default function StaffLiquidShell({ children }: { children: ReactNode }) {
+export default function StaffLiquidShell({
+  children,
+  mode = "staff",
+}: {
+  children: ReactNode;
+  mode?: ShellMode;
+}) {
   const [theme, setTheme] = useState<StaffTheme>("light");
   const [quickActionsMount, setQuickActionsMount] = useState<HTMLElement | null>(null);
   const [paginationMount, setPaginationMount] = useState<HTMLElement | null>(null);
@@ -108,9 +119,10 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
   const [showGateFooter, setShowGateFooter] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
   const recordsSectionRef = useRef<HTMLElement | null>(null);
+  const themeStorageKey = mode === "admin" ? "pinball_admin_theme" : "pinball_staff_theme";
 
   useEffect(() => {
-    const initialTheme = getInitialTheme();
+    const initialTheme = getInitialTheme(themeStorageKey);
     const timer = window.setTimeout(() => {
       setTheme(initialTheme);
       syncDocumentTheme(initialTheme);
@@ -122,7 +134,7 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
       document.documentElement.style.removeProperty("color-scheme");
       document.body.style.removeProperty("background-color");
     };
-  }, []);
+  }, [themeStorageKey]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -146,7 +158,7 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
       observer.disconnect();
       mount?.remove();
     };
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -165,6 +177,10 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
   }, []);
 
   useEffect(() => {
+    if (mode !== "staff") {
+      return;
+    }
+
     const shell = shellRef.current;
     if (!shell) return;
 
@@ -245,7 +261,7 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
       observer.disconnect();
       mount?.remove();
     };
-  }, [recordPage]);
+  }, [mode, recordPage]);
 
   function toggleTheme() {
     setTheme((current) => {
@@ -269,6 +285,17 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
     window.location.reload();
   }
 
+  async function handleAdminLogout() {
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (response.ok) {
+        window.location.assign("/");
+      }
+    } catch {
+      // Keep the current session intact if the network request cannot complete.
+    }
+  }
+
   function changeRecordPage(page: number) {
     setRecordPage(Math.max(1, Math.min(page, recordPageCount)));
     window.requestAnimationFrame(() => {
@@ -278,19 +305,40 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
 
   const quickActions = quickActionsMount
     ? createPortal(
-        <nav className={quickStyles.quickActionsCard} aria-label="Cài đặt nhanh nhân viên">
-          <a className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/install">
-            <Download aria-hidden="true" />
-            <span>Tải xuống</span>
-          </a>
+        <nav
+          className={quickStyles.quickActionsCard}
+          aria-label={mode === "admin" ? "Thao tác nhanh quản trị" : "Cài đặt nhanh nhân viên"}
+        >
+          {mode === "admin" ? (
+            <a className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/">
+              <Ticket aria-hidden="true" />
+              <span>Nhân viên</span>
+            </a>
+          ) : (
+            <a className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/install">
+              <Download aria-hidden="true" />
+              <span>Tải xuống</span>
+            </a>
+          )}
           <button type="button" className={`${quickStyles.quickAction} ${quickStyles.themeAction}`} onClick={toggleTheme}>
             {theme === "light" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
             <span>{theme === "light" ? "Light mode" : "Dark mode"}</span>
           </button>
-          <button type="button" className={`${quickStyles.quickAction} ${quickStyles.renameAction}`} onClick={resetStaffName}>
-            <LogOut aria-hidden="true" />
-            <span>Nhập lại tên</span>
-          </button>
+          {mode === "admin" ? (
+            <button
+              type="button"
+              className={`${quickStyles.quickAction} ${quickStyles.renameAction}`}
+              onClick={() => void handleAdminLogout()}
+            >
+              <LogOut aria-hidden="true" />
+              <span>Đăng xuất</span>
+            </button>
+          ) : (
+            <button type="button" className={`${quickStyles.quickAction} ${quickStyles.renameAction}`} onClick={resetStaffName}>
+              <LogOut aria-hidden="true" />
+              <span>Nhập lại tên</span>
+            </button>
+          )}
         </nav>,
         quickActionsMount,
       )
@@ -343,8 +391,9 @@ export default function StaffLiquidShell({ children }: { children: ReactNode }) 
     <div
       ref={shellRef}
       className={`${styles.shell} ${roundedStyles.roundedShell} ${quickStyles.quickActionsShell} ${darkStyles.darkContrastShell} ${identityStyles.identityBannerShell} ${paginationStyles.paginationShell}`}
+      data-shell-mode={mode}
       data-staff-theme={theme}
-      onChangeCapture={handleStaffNameChange}
+      onChangeCapture={(event) => handleStaffNameChange(event, mode)}
     >
       <div className={styles.backdrop} aria-hidden="true" />
       {quickActions}

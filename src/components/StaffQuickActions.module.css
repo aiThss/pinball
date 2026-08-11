@@ -100,6 +100,10 @@
   display: none !important;
 }
 
+.quickActionsShell[data-shell-mode="admin"] :global(main > header > div > div:last-child) {
+  display: none !important;
+}
+
 @media (max-width: 520px) {
   .quickActionsCard {
     gap: 3px;
