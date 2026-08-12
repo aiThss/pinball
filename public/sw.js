@@ -1,4 +1,4 @@
-const CACHE_VERSION = "pinball-pwa-v1";
+const CACHE_VERSION = "pinball-pwa-v2";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_TIMEOUT_MS = 3000;
@@ -186,10 +186,15 @@ function fetchWithTimeout(request, timeoutMs) {
 }
 
 function isStaticAsset(request, url) {
+  // Next.js already fingerprints production bundles. Keeping development or old
+  // route chunks in this cache can otherwise leave the app with stale UI code.
+  if (url.pathname.startsWith("/_next/")) {
+    return false;
+  }
+
   return (
-    url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname === "/favicon.ico" ||
-    ["font", "image", "script", "style"].includes(request.destination)
+    ["font", "image"].includes(request.destination)
   );
 }

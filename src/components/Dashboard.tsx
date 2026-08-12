@@ -24,6 +24,7 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
+  type LucideIcon,
 } from "lucide-react";
 import { formatDate, getHanoiNow, getHanoiParts } from "@/lib/time";
 
@@ -312,6 +313,30 @@ function CompactUpdateInfo({
         <div className={changeClassName ?? lineClassName}>Thay đổi: {updateInfo.content}</div>
       ) : null}
     </>
+  );
+}
+
+function AdminMetricCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#334155]">
+          <Icon aria-hidden="true" size={17} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-[#64748B]">{label}</div>
+          <div className="mt-0.5 text-2xl font-bold">{value}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1365,21 +1390,21 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#111827] text-white sm:h-11 sm:w-11">
-              {isAdmin ? <Eye aria-hidden="true" size={22} /> : <Ticket aria-hidden="true" size={22} />}
+              <Ticket aria-hidden="true" size={22} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-base font-bold leading-tight sm:text-lg">
-                  {isAdmin ? `Admin ${appTitle}` : appTitle}
+                  {appTitle}
                 </h1>
                 {isAdmin ? (
                   <span className="rounded-full bg-[#111827] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                    Audit
+                    Admin
                   </span>
                 ) : null}
               </div>
               <p className="truncate text-xs text-[#64748B] sm:text-sm">
-                {isAdmin ? "Kiểm tra ngày giờ, thẻ, bi và lịch sử" : <span>Nhân viên: <span className="font-bold text-[#0F172A]">{staffName}</span></span>}
+                {isAdmin ? "Quản trị và đối soát hoạt động" : <span>Nhân viên: <span className="font-bold text-[#0F172A]">{staffName}</span></span>}
               </p>
             </div>
           </div>
@@ -1448,9 +1473,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             <section className="rounded-lg border border-[#CBD5E1] bg-white p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <div className="mb-2 inline-flex rounded-full bg-[#111827] px-3 py-1 text-xs font-bold uppercase text-white">
-                    Trang admin
-                  </div>
                   <h2 className="text-xl font-bold">Đối soát theo ngày</h2>
                   <p className="mt-1 text-sm text-[#64748B]">
                     {adminDashboardLoading ? "Đang tải dữ liệu..." : `Ngày ${formatDate(adminDashboardDate)}`}
@@ -1467,35 +1489,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </label>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4 xl:grid-cols-7">
-                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                  <div className="text-xs font-semibold text-[#64748B]">Bản ghi</div>
-                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.totalRecords}</div>
-                </div>
-                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                  <div className="text-xs font-semibold text-[#64748B]">Khách</div>
-                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.uniqueCustomers}</div>
-                </div>
-                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                  <div className="text-xs font-semibold text-[#64748B]">Thẻ gửi</div>
-                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.cardsDeposited}</div>
-                </div>
-                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                  <div className="text-xs font-semibold text-[#64748B]">Bi gửi</div>
-                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.ballsDeposited}</div>
-                </div>
-                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                  <div className="text-xs font-semibold text-[#64748B]">Thẻ lấy</div>
-                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.cardsWithdrawn}</div>
-                </div>
-                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                  <div className="text-xs font-semibold text-[#64748B]">Bi lấy</div>
-                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.ballsWithdrawn}</div>
-                </div>
-                <div className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                  <div className="text-xs font-semibold text-[#64748B]">Đã cập nhật</div>
-                  <div className="mt-1 text-2xl font-bold">{adminDateSummary.recordsUpdated}</div>
-                </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4 2xl:grid-cols-7">
+                <AdminMetricCard icon={LayoutDashboard} label="Bản ghi" value={adminDateSummary.totalRecords} />
+                <AdminMetricCard icon={UserRound} label="Khách" value={adminDateSummary.uniqueCustomers} />
+                <AdminMetricCard icon={Ticket} label="Thẻ gửi" value={adminDateSummary.cardsDeposited} />
+                <AdminMetricCard icon={Coins} label="Bi gửi" value={adminDateSummary.ballsDeposited} />
+                <AdminMetricCard icon={RefreshCw} label="Thẻ lấy" value={adminDateSummary.cardsWithdrawn} />
+                <AdminMetricCard icon={RefreshCw} label="Bi lấy" value={adminDateSummary.ballsWithdrawn} />
+                <AdminMetricCard icon={Clock3} label="Đã cập nhật" value={adminDateSummary.recordsUpdated} />
               </div>
 
               <div className="mt-4 overflow-hidden rounded-md border border-[#E5E7EB] bg-[#F8FAFC]">

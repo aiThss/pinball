@@ -24,6 +24,7 @@ type ShellMode = "staff" | "admin";
 type PageItem = number | "ellipsis-left" | "ellipsis-right";
 
 const staffNameStorageKey = "pinball_staff_name";
+const themeStorageKey = "pinball_staff_theme";
 const recordsPerPage = 6;
 
 function capitalizeStaffName(value: string) {
@@ -119,8 +120,6 @@ export default function StaffLiquidShell({
   const [showGateFooter, setShowGateFooter] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
   const recordsSectionRef = useRef<HTMLElement | null>(null);
-  const themeStorageKey = mode === "admin" ? "pinball_admin_theme" : "pinball_staff_theme";
-
   useEffect(() => {
     const initialTheme = getInitialTheme(themeStorageKey);
     const timer = window.setTimeout(() => {
