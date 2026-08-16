@@ -57,6 +57,11 @@
   color: #b9bac2 !important;
 }
 
+/* Phone numbers need a brighter, distinct color against the dark glass surfaces. */
+.darkContrastShell[data-staff-theme="dark"] :global([data-phone-number]) {
+  color: #7dd3fc !important;
+}
+
 .darkContrastShell[data-staff-theme="dark"] :global(input),
 .darkContrastShell[data-staff-theme="dark"] :global(select),
 .darkContrastShell[data-staff-theme="dark"] :global(textarea) {
