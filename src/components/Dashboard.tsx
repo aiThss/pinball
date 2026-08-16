@@ -222,6 +222,7 @@ const emptyAdminSystemOverview: AdminSystemOverview = {
 const depositPageLimit = 50;
 const exportPageLimit = 100;
 const minPhoneSuggestionDigits = 3;
+const customerSearchDebounceMs = 50;
 
 function getDefaultDepositForm(includeDateTime = false) {
   const now = getHanoiNow();
@@ -963,7 +964,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           setLookupLoading(false);
         }
       }
-    }, 400);
+    }, customerSearchDebounceMs);
 
     return () => {
       controller.abort();
@@ -1009,7 +1010,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           setHistoryQueryLoading(false);
         }
       }
-    }, 350);
+    }, customerSearchDebounceMs);
 
     return () => {
       controller.abort();
@@ -1055,7 +1056,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           setQuickLookupLoading(false);
         }
       }
-    }, 350);
+    }, customerSearchDebounceMs);
 
     return () => {
       controller.abort();
