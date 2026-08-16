@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError, parseError } from "@/lib/api";
 import { verifyAdmin } from "@/lib/auth";
-import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { getHanoiNow } from "@/lib/time";
 import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
@@ -68,8 +67,6 @@ export async function GET(request: NextRequest) {
     const requestedDate = request.nextUrl.searchParams.get("date")?.trim() || "";
     const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : getHanoiNow().date;
     const { start, end } = getHanoiDateBounds(date);
-
-    await rebuildCustomerDailyTotalsForDates([date]);
 
     const [dateTotals, historyUpdatedRecords, recentUpdates, customerDailyTotals] = await Promise.all([
       CustomerDeposit.aggregate<DateTotals>([

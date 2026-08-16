@@ -102,6 +102,14 @@ Schema `customers_deposits` gồm: `fullName`, `phone`, `depositDate`, `depositT
 
 `cards`/`balls` là số phát sinh của bản ghi để đối chiếu. `remainingCards`/`remainingBalls` là số còn đang giữ dùng cho phép trừ khi khách lấy lại. `customers_daily_deposits` lưu tổng phát sinh theo `date + phone` để admin xem mỗi khách gửi/lấy bao nhiêu trong ngày.
 
+Sau khi deploy phiên bản có thay đổi index, chạy một lần từ môi trường có `MONGODB_URI` production:
+
+```bash
+npm run db:ensure-indexes
+```
+
+Lệnh này chỉ tạo/xác nhận các index phục vụ danh sách theo trạng thái và theo ngày; không sửa dữ liệu.
+
 ## Ghi chú vận hành
 
 - Validate số điện thoại Việt Nam.

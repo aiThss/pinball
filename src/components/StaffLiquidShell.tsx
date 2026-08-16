@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Download,
   LogOut,
   Moon,
@@ -21,11 +21,9 @@ import paginationStyles from "./StaffRecordPagination.module.css";
 
 type StaffTheme = "light" | "dark";
 type ShellMode = "staff" | "admin";
-type PageItem = number | "ellipsis-left" | "ellipsis-right";
 
 const staffNameStorageKey = "pinball_staff_name";
 const themeStorageKey = "pinball_staff_theme";
-const recordsPerPage = 6;
 
 function capitalizeStaffName(value: string) {
   return value.replace(/(^|\s)(\p{L})/gu, (_, separator: string, letter: string) =>
@@ -74,37 +72,6 @@ function syncDocumentTheme(theme: StaffTheme) {
   document.body.style.backgroundColor = color;
 }
 
-function getPageItems(totalPages: number, currentPage: number): PageItem[] {
-  if (totalPages <= 6) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-
-  if (currentPage <= 3) {
-    return [1, 2, 3, 4, "ellipsis-right", totalPages];
-  }
-
-  if (currentPage >= totalPages - 2) {
-    return [
-      1,
-      "ellipsis-left",
-      totalPages - 3,
-      totalPages - 2,
-      totalPages - 1,
-      totalPages,
-    ];
-  }
-
-  return [
-    1,
-    "ellipsis-left",
-    currentPage - 1,
-    currentPage,
-    currentPage + 1,
-    "ellipsis-right",
-    totalPages,
-  ];
-}
-
 export default function StaffLiquidShell({
   children,
   mode = "staff",
@@ -112,14 +79,11 @@ export default function StaffLiquidShell({
   children: ReactNode;
   mode?: ShellMode;
 }) {
+  const router = useRouter();
   const [theme, setTheme] = useState<StaffTheme>("light");
   const [quickActionsMount, setQuickActionsMount] = useState<HTMLElement | null>(null);
-  const [paginationMount, setPaginationMount] = useState<HTMLElement | null>(null);
-  const [recordPage, setRecordPage] = useState(1);
-  const [recordPageCount, setRecordPageCount] = useState(0);
   const [showGateFooter, setShowGateFooter] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
-  const recordsSectionRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const initialTheme = getInitialTheme(themeStorageKey);
     const timer = window.setTimeout(() => {
@@ -133,7 +97,7 @@ export default function StaffLiquidShell({
       document.documentElement.style.removeProperty("color-scheme");
       document.body.style.removeProperty("background-color");
     };
-  }, [themeStorageKey]);
+  }, []);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -175,93 +139,6 @@ export default function StaffLiquidShell({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (mode !== "staff") {
-      return;
-    }
-
-    const shell = shellRef.current;
-    if (!shell) return;
-
-    let mount: HTMLDivElement | null = null;
-    let frame = 0;
-
-    const updatePagination = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        const table = [...shell.querySelectorAll<HTMLTableElement>("table")].find((candidate) => {
-          const text = candidate.textContent ?? "";
-          return text.includes("Gửi/Lấy thẻ") && text.includes("Trạng thái");
-        });
-        const section = table?.closest<HTMLElement>("section");
-        if (!table || !section) {
-          setRecordPageCount(0);
-          return;
-        }
-
-        recordsSectionRef.current = section;
-        const articles = [...section.querySelectorAll<HTMLElement>("article")].filter(
-          (article) => article.closest("section") === section,
-        );
-        const rows = [...table.querySelectorAll<HTMLTableRowElement>("tbody > tr")].filter(
-          (row) => !(row.textContent ?? "").includes("Không có bản ghi"),
-        );
-        const totalRecords = Math.max(articles.length, rows.length);
-        const totalPages = Math.max(1, Math.ceil(totalRecords / recordsPerPage));
-        const safePage = Math.min(recordPage, totalPages);
-
-        if (safePage !== recordPage) {
-          setRecordPage(safePage);
-          return;
-        }
-
-        setRecordPageCount(totalRecords > 0 ? totalPages : 0);
-        const start = (safePage - 1) * recordsPerPage;
-        const end = start + recordsPerPage;
-        articles.forEach((article, index) => {
-          article.hidden = index < start || index >= end;
-        });
-        rows.forEach((row, index) => {
-          row.hidden = index < start || index >= end;
-        });
-
-        const loadMoreButton = [...section.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
-          /Tải thêm|Đang tải/.test(button.textContent ?? ""),
-        );
-        if (loadMoreButton) {
-          let container: HTMLElement | null = loadMoreButton.parentElement;
-          while (container?.parentElement && container.parentElement !== section) {
-            container = container.parentElement;
-          }
-          if (container) container.hidden = true;
-        }
-
-        if (totalRecords === 0 || totalPages <= 1) {
-          mount?.remove();
-          mount = null;
-          setPaginationMount(null);
-          return;
-        }
-
-        if (!mount?.isConnected) {
-          mount = document.createElement("div");
-          mount.className = paginationStyles.paginationMount;
-          section.append(mount);
-          setPaginationMount(mount);
-        }
-      });
-    };
-
-    updatePagination();
-    const observer = new MutationObserver(updatePagination);
-    observer.observe(shell, { childList: true, subtree: true, characterData: true });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-      mount?.remove();
-    };
-  }, [mode, recordPage]);
-
   function toggleTheme() {
     setTheme((current) => {
       const next = current === "light" ? "dark" : "light";
@@ -288,18 +165,11 @@ export default function StaffLiquidShell({
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (response.ok) {
-        window.location.assign("/");
+        router.replace("/");
       }
     } catch {
       // Keep the current session intact if the network request cannot complete.
     }
-  }
-
-  function changeRecordPage(page: number) {
-    setRecordPage(Math.max(1, Math.min(page, recordPageCount)));
-    window.requestAnimationFrame(() => {
-      recordsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   }
 
   const quickActions = quickActionsMount
@@ -309,15 +179,15 @@ export default function StaffLiquidShell({
           aria-label={mode === "admin" ? "Thao tác nhanh quản trị" : "Cài đặt nhanh nhân viên"}
         >
           {mode === "admin" ? (
-            <a className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/">
+            <Link className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/">
               <Ticket aria-hidden="true" />
               <span>Nhân viên</span>
-            </a>
+            </Link>
           ) : (
-            <a className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/install">
+            <Link className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/install">
               <Download aria-hidden="true" />
               <span>Tải xuống</span>
-            </a>
+            </Link>
           )}
           <button type="button" className={`${quickStyles.quickAction} ${quickStyles.themeAction}`} onClick={toggleTheme}>
             {theme === "light" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
@@ -343,49 +213,6 @@ export default function StaffLiquidShell({
       )
     : null;
 
-  const pagination = paginationMount && recordPageCount > 1
-    ? createPortal(
-        <nav className={paginationStyles.pagination} aria-label="Phân trang bản ghi">
-          <button
-            type="button"
-            className={paginationStyles.pageButton}
-            onClick={() => changeRecordPage(recordPage - 1)}
-            disabled={recordPage === 1}
-            aria-label="Trang trước"
-          >
-            <ChevronLeft aria-hidden="true" />
-          </button>
-          <div className={paginationStyles.pageNumbers}>
-            {getPageItems(recordPageCount, recordPage).map((item) =>
-              typeof item === "number" ? (
-                <button
-                  key={item}
-                  type="button"
-                  className={`${paginationStyles.pageButton}${item === recordPage ? ` ${paginationStyles.currentPage}` : ""}`}
-                  onClick={() => changeRecordPage(item)}
-                  aria-current={item === recordPage ? "page" : undefined}
-                >
-                  {item}
-                </button>
-              ) : (
-                <span className={paginationStyles.ellipsis} key={item} aria-hidden="true">…</span>
-              ),
-            )}
-          </div>
-          <button
-            type="button"
-            className={paginationStyles.pageButton}
-            onClick={() => changeRecordPage(recordPage + 1)}
-            disabled={recordPage === recordPageCount}
-            aria-label="Trang sau"
-          >
-            <ChevronRight aria-hidden="true" />
-          </button>
-        </nav>,
-        paginationMount,
-      )
-    : null;
-
   return (
     <div
       ref={shellRef}
@@ -396,7 +223,6 @@ export default function StaffLiquidShell({
     >
       <div className={styles.backdrop} aria-hidden="true" />
       {quickActions}
-      {pagination}
       <div className={styles.content}>{children}</div>
       <footer
         className={`${paginationStyles.siteFooter} ${

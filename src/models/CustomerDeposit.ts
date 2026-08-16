@@ -224,6 +224,9 @@ CustomerDepositSchema.pre("save", function syncCreatedAtWithDepositDateTime() {
 CustomerDepositSchema.index({ createdAt: -1 });
 CustomerDepositSchema.index({ fullName: "text", phone: "text" });
 CustomerDepositSchema.index({ phone: 1, status: 1, createdAt: -1 });
+// Cover the most frequent list views so MongoDB can filter and sort without an in-memory sort.
+CustomerDepositSchema.index({ status: 1, createdAt: -1 });
+CustomerDepositSchema.index({ depositDate: 1, createdAt: -1 });
 
 export const CustomerDeposit =
   (models.CustomerDeposit as Model<ICustomerDeposit> | undefined) ??

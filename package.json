@@ -6,28 +6,29 @@
     "dev": "node scripts/patch-telegram-webhook.mjs && next dev",
     "build": "node scripts/patch-telegram-webhook.mjs && next build && node scripts/copy-standalone-assets.mjs",
     "start": "node .next/standalone/server.js",
-    "lint": "eslint",
+    "lint": "eslint src scripts public/sw.js next.config.ts",
+    "db:ensure-indexes": "node scripts/ensure-indexes.mjs",
     "migrate:history-actions": "node scripts/migrate-history-actions.mjs"
   },
   "dependencies": {
     "@types/web-push": "^3.6.4",
-    "lucide-react": "^1.23.0",
-    "mongoose": "^9.7.3",
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "lucide-react": "^1.31.0",
+    "mongoose": "^9.9.2",
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "web-push": "^3.6.7",
     "write-excel-file": "^4.1.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

@@ -34,10 +34,20 @@ function normalizeTotalText(value: unknown, cards: unknown, balls: unknown) {
   return buildTotalText(Number(cards) || 0, Number(balls) || 0);
 }
 
-export function serializeDeposit(deposit: {
-  toObject: () => Record<string, unknown>;
-}, overrides: Partial<{ totalText: string }> = {}) {
-  const value = deposit.toObject();
+function toPlainObject(deposit: unknown) {
+  if (deposit && typeof deposit === "object" && "toObject" in deposit) {
+    const toObject = (deposit as { toObject?: unknown }).toObject;
+
+    if (typeof toObject === "function") {
+      return toObject.call(deposit) as Record<string, unknown>;
+    }
+  }
+
+  return (deposit ?? {}) as Record<string, unknown>;
+}
+
+export function serializeDeposit(deposit: unknown, overrides: Partial<{ totalText: string }> = {}) {
+  const value = toPlainObject(deposit);
   const history = Array.isArray(value.history) ? value.history : [];
 
   return {

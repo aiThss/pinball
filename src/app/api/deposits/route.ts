@@ -20,8 +20,8 @@ import {
 } from "@/models/CustomerDeposit";
 
 const defaultPage = 1;
-const defaultLimit = 100;
-const maxLimit = 300;
+const defaultLimit = 50;
+const maxLimit = 100;
 const activeDepositStatus = depositStatuses[0];
 const returnedDepositStatus = depositStatuses[1];
 const depositCardAction = cardActions[0];
@@ -230,9 +230,10 @@ export async function GET(request: NextRequest) {
     const phone = searchParams.get("phone")?.trim();
     const depositDate = searchParams.get("date")?.trim();
     const status = searchParams.get("status")?.trim();
+    const includeHistory = searchParams.get("includeHistory") === "true";
 
-    if (depositDate && !(await verifyAdmin())) {
-      return jsonError("Bạn không có quyền lọc dữ liệu theo ngày.", 403);
+    if ((depositDate || includeHistory) && !(await verifyAdmin())) {
+      return jsonError("Bạn không có quyền xem dữ liệu chi tiết này.", 403);
     }
 
     if (name) {
@@ -254,9 +255,17 @@ export async function GET(request: NextRequest) {
     const page = parsePositiveInteger(searchParams.get("page"), defaultPage);
     const limit = Math.min(parsePositiveInteger(searchParams.get("limit"), defaultLimit), maxLimit);
     const skip = (page - 1) * limit;
+    const listProjection = includeHistory
+      ? undefined
+      : {
+          history: 0,
+          withdrawalAllocations: 0,
+          remainingCards: 0,
+          remainingBalls: 0,
+        };
     const [total, deposits] = await Promise.all([
       CustomerDeposit.countDocuments(filter),
-      CustomerDeposit.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      CustomerDeposit.find(filter, listProjection).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     ]);
 
     return NextResponse.json({

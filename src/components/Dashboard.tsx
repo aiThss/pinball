@@ -2,6 +2,7 @@
 
 import { Fragment, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Cell, Sheet, SheetData } from "write-excel-file/browser";
 import {
   CalendarDays,
@@ -22,8 +23,6 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import { formatDate, getHanoiNow, getHanoiParts } from "@/lib/time";
@@ -143,6 +142,20 @@ type AdminDashboardResponse = {
   customerDailyTotals: CustomerDailyTotal[];
 };
 
+type AdminSystemOverview = {
+  checkedAt: string;
+  databaseMs: number;
+  totalRecords: number;
+  totalHistoryEntries: number;
+  cardsDeposited: number;
+  ballsDeposited: number;
+  cardsWithdrawn: number;
+  ballsWithdrawn: number;
+  dailySummaryRecords: number;
+  firstRecordAt: string | null;
+  lastRecordAt: string | null;
+};
+
 type DepositSuggestion = {
   phone: string;
   fullName: string;
@@ -193,8 +206,21 @@ const emptyAdminDateSummary: AdminDateSummary = {
   ballsWithdrawn: 0,
   recordsUpdated: 0,
 };
-const depositPageLimit = 100;
-const exportPageLimit = 300;
+const emptyAdminSystemOverview: AdminSystemOverview = {
+  checkedAt: "",
+  databaseMs: 0,
+  totalRecords: 0,
+  totalHistoryEntries: 0,
+  cardsDeposited: 0,
+  ballsDeposited: 0,
+  cardsWithdrawn: 0,
+  ballsWithdrawn: 0,
+  dailySummaryRecords: 0,
+  firstRecordAt: null,
+  lastRecordAt: null,
+};
+const depositPageLimit = 50;
+const exportPageLimit = 100;
 const minPhoneSuggestionDigits = 3;
 
 function getDefaultDepositForm(includeDateTime = false) {
@@ -314,6 +340,14 @@ function CompactUpdateInfo({
       ) : null}
     </>
   );
+}
+
+function formatDuration(milliseconds: number) {
+  if (milliseconds < 1000) {
+    return `${milliseconds} ms`;
+  }
+
+  return `${(milliseconds / 1000).toFixed(1)} s`;
 }
 
 function AdminMetricCard({
@@ -507,6 +541,7 @@ function StaffGate({ initialName = "", onEnter }: { initialName?: string; onEnte
 }
 
 export default function Dashboard({ mode }: { mode: Mode }) {
+  const router = useRouter();
   const isAdmin = mode === "admin";
   const [staffName, setStaffName] = useState(isAdmin ? adminDisplayName : "");
   const [staffSessionLoaded, setStaffSessionLoaded] = useState(isAdmin);
@@ -520,11 +555,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [summary, setSummary] = useState<DepositSummary>(emptySummary);
   const [adminDashboardDate, setAdminDashboardDate] = useState(() => getHanoiNow().date);
   const [adminDateSummary, setAdminDateSummary] = useState<AdminDateSummary>(emptyAdminDateSummary);
+  const [adminSystemOverview, setAdminSystemOverview] = useState<AdminSystemOverview>(emptyAdminSystemOverview);
   const [recentStaffUpdates, setRecentStaffUpdates] = useState<RecentStaffUpdate[]>([]);
   const [customerDailyTotals, setCustomerDailyTotals] = useState<CustomerDailyTotal[]>([]);
   const [showRecentStaffUpdates, setShowRecentStaffUpdates] = useState(false);
   const [recentStaffUpdatesPage, setRecentStaffUpdatesPage] = useState(1);
   const [adminDashboardLoading, setAdminDashboardLoading] = useState(false);
+  const [adminSystemLoading, setAdminSystemLoading] = useState(false);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -532,6 +569,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     hasMore: false,
   });
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
   const [showCardRanking, setShowCardRanking] = useState(false);
   const [showActiveCustomers, setShowActiveCustomers] = useState(false);
@@ -684,8 +722,34 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     [isAdmin, showNotice],
   );
 
+  const loadAdminSystem = useCallback(
+    async (silent = false) => {
+      if (!isAdmin) {
+        return;
+      }
+
+      if (!silent) {
+        setAdminSystemLoading(true);
+      }
+
+      try {
+        const data = await apiRequest<AdminSystemOverview>("/api/admin/system");
+        setAdminSystemOverview(data);
+      } catch (error) {
+        if (!silent) {
+          showNotice("error", error instanceof Error ? error.message : "Không tải được tình trạng hệ thống.");
+        }
+      } finally {
+        if (!silent) {
+          setAdminSystemLoading(false);
+        }
+      }
+    },
+    [isAdmin, showNotice],
+  );
+
   const buildDepositQuery = useCallback(
-    (filterValues: DepositFilters, pageToLoad: number, limit: number) => {
+    (filterValues: DepositFilters, pageToLoad: number, limit: number, includeHistory = false) => {
       const params = new URLSearchParams();
       params.set("page", String(pageToLoad));
       params.set("limit", String(limit));
@@ -707,6 +771,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
       if (filterValues.status) {
         params.set("status", filterValues.status);
+      }
+
+      if (includeHistory && isAdmin) {
+        params.set("includeHistory", "true");
       }
 
       return params;
@@ -766,7 +834,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     let pageToLoad = 1;
 
     while (true) {
-      const params = buildDepositQuery(filterValues, pageToLoad, exportPageLimit);
+      const params = buildDepositQuery(filterValues, pageToLoad, exportPageLimit, isAdmin);
       const data = await apiRequest<DepositListResponse>(`/api/deposits?${params.toString()}`);
 
       allDeposits.push(...data.deposits);
@@ -779,7 +847,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     }
 
     return allDeposits;
-  }, [buildDepositQuery]);
+  }, [buildDepositQuery, isAdmin]);
 
   useEffect(() => {
     if (!notice) {
@@ -821,6 +889,18 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }, [adminDashboardDate, isAdmin, loadAdminDashboard, staffName]);
 
   useEffect(() => {
+    if (!staffName || !isAdmin) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadAdminSystem();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isAdmin, loadAdminSystem, staffName]);
+
+  useEffect(() => {
     if (!staffName || !autoRefreshEnabled) {
       return;
     }
@@ -829,7 +909,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       if (document.visibilityState === "visible") {
         void refreshData({ silent: true });
       }
-    }, 10000);
+    }, 20000);
 
     return () => {
       window.clearInterval(intervalId);
@@ -1006,6 +1086,27 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
   function handleLoadMore() {
     void loadDeposits(appliedFilters, pagination.page + 1, true);
+  }
+
+  async function handleToggleHistory(depositId: string) {
+    if (expandedHistoryId === depositId) {
+      setExpandedHistoryId(null);
+      return;
+    }
+
+    setHistoryLoadingId(depositId);
+
+    try {
+      const data = await apiRequest<{ deposit: Deposit }>(`/api/admin/deposits/${depositId}`);
+      setDeposits((current) =>
+        current.map((deposit) => (deposit.id === depositId ? data.deposit : deposit)),
+      );
+      setExpandedHistoryId(depositId);
+    } catch (error) {
+      showNotice("error", error instanceof Error ? error.message : "Không tải được lịch sử bản ghi.");
+    } finally {
+      setHistoryLoadingId(null);
+    }
   }
 
   function getJsonWriteHeaders() {
@@ -1221,7 +1322,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   async function handleAdminLogout() {
     try {
       await apiRequest("/api/auth/logout", { method: "POST" });
-      window.location.href = "/";
+      router.replace("/");
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không đăng xuất được.");
     }
@@ -1471,7 +1572,44 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         <section className="space-y-4 px-3 py-4 pb-8 sm:px-4 lg:space-y-5 lg:px-6">
           {isAdmin ? (
             <section className="rounded-lg border border-[#CBD5E1] bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <section className="rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3 sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-base font-bold">Hiệu năng & toàn bộ dữ liệu</h2>
+                    <p className="mt-1 text-xs text-[#64748B]">
+                      Đo một lượt đọc tổng hợp từ MongoDB; không tạo tải đồng thời lên website production.
+                    </p>
+                  </div>
+                  <button
+                    className={`${secondaryButton} h-10 px-3 text-xs`}
+                    disabled={adminSystemLoading}
+                    onClick={() => void loadAdminSystem()}
+                    type="button"
+                  >
+                    <RefreshCw className={adminSystemLoading ? "animate-spin" : ""} aria-hidden="true" size={15} />
+                    {adminSystemLoading ? "Đang kiểm tra" : "Kiểm tra hệ thống"}
+                  </button>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm lg:grid-cols-3">
+                  <AdminMetricCard icon={LayoutDashboard} label="Tổng bản ghi" value={adminSystemOverview.totalRecords} />
+                  <AdminMetricCard icon={Clock3} label="Lịch sử thao tác" value={adminSystemOverview.totalHistoryEntries} />
+                  <AdminMetricCard icon={Ticket} label="Thẻ gửi toàn bộ" value={adminSystemOverview.cardsDeposited} />
+                  <AdminMetricCard icon={Coins} label="Bi gửi toàn bộ" value={adminSystemOverview.ballsDeposited} />
+                  <AdminMetricCard icon={RefreshCw} label="Thẻ lấy toàn bộ" value={adminSystemOverview.cardsWithdrawn} />
+                  <AdminMetricCard icon={RefreshCw} label="Bi lấy toàn bộ" value={adminSystemOverview.ballsWithdrawn} />
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748B]">
+                  <span>Phản hồi MongoDB: {formatDuration(adminSystemOverview.databaseMs)}</span>
+                  <span>Bản ghi tổng hợp ngày: {adminSystemOverview.dailySummaryRecords}</span>
+                  {adminSystemOverview.checkedAt ? (
+                    <span>Đo lúc: {formatDateTime(adminSystemOverview.checkedAt)}</span>
+                  ) : null}
+                </div>
+              </section>
+
+              <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h2 className="text-xl font-bold">Đối soát theo ngày</h2>
                   <p className="mt-1 text-sm text-[#64748B]">
@@ -2320,11 +2458,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                       <button
                         className={`${secondaryButton} min-h-12 px-0`}
                         aria-label="Lịch sử"
-                        onClick={() =>
-                          setExpandedHistoryId((current) =>
-                            current === deposit.id ? null : deposit.id,
-                          )
-                        }
+                        onClick={() => void handleToggleHistory(deposit.id)}
                         type="button"
                       >
                         <Eye aria-hidden="true" size={18} />
@@ -2344,10 +2478,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
                   {isAdmin && expandedHistoryId === deposit.id ? (
                     <div className="mt-3 space-y-2 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-                      {deposit.history.length === 0 ? (
+                      {historyLoadingId === deposit.id ? (
+                        <div className="text-sm text-[#64748B]">Đang tải lịch sử...</div>
+                      ) : null}
+                      {historyLoadingId !== deposit.id && deposit.history.length === 0 ? (
                         <div className="text-sm text-[#64748B]">Chưa có lịch sử cập nhật.</div>
                       ) : null}
-                      {deposit.history.map((entry) => (
+                      {historyLoadingId !== deposit.id && deposit.history.map((entry) => (
                         <div className="rounded-md bg-white px-3 py-2" key={entry.id || `${entry.at}-${entry.content}`}>
                           <div className="text-xs font-semibold text-[#64748B]">
                             {formatDateTime(entry.at)} · {entry.actorName} · {entry.action}
@@ -2461,11 +2598,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                               <button
                                 className={iconButton}
                                 aria-label="Lịch sử"
-                                onClick={() =>
-                                  setExpandedHistoryId((current) =>
-                                    current === deposit.id ? null : deposit.id,
-                                  )
-                                }
+                                onClick={() => void handleToggleHistory(deposit.id)}
                                 type="button"
                               >
                                 <Eye aria-hidden="true" size={16} />
@@ -2488,7 +2621,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                         <tr className="bg-[#F8FAFC]">
                           <td className="px-5 py-4" colSpan={10}>
                             <div className="space-y-2">
-                              {deposit.history.map((entry) => (
+                              {historyLoadingId === deposit.id ? (
+                                <div className="text-sm text-[#64748B]">Đang tải lịch sử...</div>
+                              ) : null}
+                              {historyLoadingId !== deposit.id && deposit.history.length === 0 ? (
+                                <div className="text-sm text-[#64748B]">Chưa có lịch sử cập nhật.</div>
+                              ) : null}
+                              {historyLoadingId !== deposit.id && deposit.history.map((entry) => (
                                 <div
                                   className="rounded-md border border-[#E5E7EB] bg-white px-3 py-2"
                                   key={entry.id || `${entry.at}-${entry.content}`}
