@@ -292,7 +292,7 @@ export async function GET(request: NextRequest) {
                     $filter: {
                       input: { $ifNull: ["$history", []] },
                       as: "entry",
-                      cond: { $eq: ["$entry.action", "UPDATE"] },
+                      cond: { $eq: ["$$entry.action", "UPDATE"] },
                     },
                   },
                   -1,
