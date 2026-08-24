@@ -1,12 +1,30 @@
 import { model, models, Schema, type Document, type Model, type Types } from "mongoose";
 import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
 
+export interface IHistorySnapshot {
+  fullName: string;
+  phone: string;
+  depositDate: string;
+  depositTime: string;
+  cardAction: (typeof cardActions)[number];
+  ballAction: (typeof ballActions)[number];
+  cards: number;
+  balls: number;
+  remainingCards?: number;
+  remainingBalls?: number;
+  totalText: string;
+  status: (typeof depositStatuses)[number];
+}
+
 export interface IHistoryEntry {
+  _id?: Types.ObjectId;
   at: Date;
   actorId?: Types.ObjectId;
   actorName: string;
   action: "CREATE" | "UPDATE" | "AUTO_DEDUCT" | "AUTO_RESTORE";
   content: string;
+  before?: IHistorySnapshot;
+  after?: IHistorySnapshot;
 }
 
 export interface IWithdrawalAllocation {
@@ -46,6 +64,24 @@ function getDepositTimestamp(depositDate: string, depositTime: string) {
   return Number.isNaN(timestamp.getTime()) ? null : timestamp;
 }
 
+const HistorySnapshotSchema = new Schema<IHistorySnapshot>(
+  {
+    fullName: { type: String, required: true },
+    phone: { type: String, required: true },
+    depositDate: { type: String, required: true },
+    depositTime: { type: String, required: true },
+    cardAction: { type: String, enum: cardActions, required: true },
+    ballAction: { type: String, enum: ballActions, required: true },
+    cards: { type: Number, required: true, min: 0 },
+    balls: { type: Number, required: true, min: 0 },
+    remainingCards: { type: Number, required: false, min: 0 },
+    remainingBalls: { type: Number, required: false, min: 0 },
+    totalText: { type: String, required: true },
+    status: { type: String, enum: depositStatuses, required: true },
+  },
+  { _id: false },
+);
+
 const HistorySchema = new Schema<IHistoryEntry>(
   {
     at: {
@@ -69,6 +105,14 @@ const HistorySchema = new Schema<IHistoryEntry>(
     content: {
       type: String,
       required: true,
+    },
+    before: {
+      type: HistorySnapshotSchema,
+      required: false,
+    },
+    after: {
+      type: HistorySnapshotSchema,
+      required: false,
     },
   },
   { _id: true },
