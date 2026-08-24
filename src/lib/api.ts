@@ -46,9 +46,25 @@ function toPlainObject(deposit: unknown) {
   return (deposit ?? {}) as Record<string, unknown>;
 }
 
+function serializeHistoryEntry(item: unknown) {
+  const entry = item as Record<string, unknown>;
+
+  return {
+    id: String(entry._id ?? entry.id ?? ""),
+    at: entry.at instanceof Date ? entry.at.toISOString() : entry.at,
+    actorId: String(entry.actorId ?? ""),
+    actorName: entry.actorName,
+    action: entry.action,
+    content: entry.content,
+  };
+}
+
 export function serializeDeposit(deposit: unknown, overrides: Partial<{ totalText: string }> = {}) {
   const value = toPlainObject(deposit);
   const history = Array.isArray(value.history) ? value.history : [];
+  const latestUpdate =
+    value.latestUpdate ??
+    [...history].reverse().find((item) => (item as Record<string, unknown>).action === "UPDATE");
 
   return {
     id: String(value._id),
@@ -68,17 +84,7 @@ export function serializeDeposit(deposit: unknown, overrides: Partial<{ totalTex
     updatedAt: value.updatedAt instanceof Date ? value.updatedAt.toISOString() : value.updatedAt,
     createdBy: null,
     updatedBy: null,
-    history: history.map((item) => {
-      const entry = item as Record<string, unknown>;
-
-      return {
-        id: String(entry._id ?? ""),
-        at: entry.at instanceof Date ? entry.at.toISOString() : entry.at,
-        actorId: String(entry.actorId ?? ""),
-        actorName: entry.actorName,
-        action: entry.action,
-        content: entry.content,
-      };
-    }),
+    latestUpdate: latestUpdate ? serializeHistoryEntry(latestUpdate) : null,
+    history: history.map(serializeHistoryEntry),
   };
 }
