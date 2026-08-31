@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 
 const uri = process.env.MONGODB_URI;
 
@@ -32,7 +32,7 @@ async function recalculateAll() {
 
     const deposits = await collection
       .find({ phone })
-      .sort({ createdAt: 1, _id: 1 })
+      .sort({ depositDate: 1, depositTime: 1, createdAt: 1, _id: 1 })
       .toArray();
 
     if (deposits.length === 0) continue;

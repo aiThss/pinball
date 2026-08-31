@@ -135,7 +135,7 @@ export async function recalculateCustomerDepositTotals(phonesInput: string | Ite
   }
 
   for (const phone of phones) {
-    const deposits = await CustomerDeposit.find({ phone }).sort({ createdAt: 1, _id: 1 });
+    const deposits = await CustomerDeposit.find({ phone }).sort({ depositDate: 1, depositTime: 1, createdAt: 1, _id: 1 });
 
     if (deposits.length === 0) {
       continue;
