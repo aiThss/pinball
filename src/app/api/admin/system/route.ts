@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError, parseError } from "@/lib/api";
 import { verifyAdmin } from "@/lib/auth";
+import { recalculateCustomerDepositTotals } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { ballActions, cardActions } from "@/lib/validation";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
@@ -79,6 +80,25 @@ export async function GET() {
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
+  } catch (error) {
+    return jsonError(parseError(error), 500);
+  }
+}
+
+export async function POST() {
+  try {
+    if (!(await verifyAdmin())) {
+      return jsonError("Unauthorized.", 403);
+    }
+
+    await connectMongo();
+    const phones = await CustomerDeposit.distinct<string>("phone");
+    await recalculateCustomerDepositTotals(phones);
+
+    return NextResponse.json({
+      ok: true,
+      customersRecalculated: phones.length,
+    });
   } catch (error) {
     return jsonError(parseError(error), 500);
   }

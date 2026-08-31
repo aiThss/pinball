@@ -8,7 +8,8 @@
     "start": "node .next/standalone/server.js",
     "lint": "eslint src scripts public/sw.js next.config.ts",
     "db:ensure-indexes": "node scripts/ensure-indexes.mjs",
-    "migrate:history-actions": "node scripts/migrate-history-actions.mjs"
+    "migrate:history-actions": "node scripts/migrate-history-actions.mjs",
+    "migrate:running-totals": "node scripts/recalculate-all-running-totals.mjs"
   },
   "dependencies": {
     "@types/web-push": "^3.6.4",

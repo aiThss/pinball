@@ -568,6 +568,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [recentStaffUpdatesPage, setRecentStaffUpdatesPage] = useState(1);
   const [adminDashboardLoading, setAdminDashboardLoading] = useState(false);
   const [adminSystemLoading, setAdminSystemLoading] = useState(false);
+  const [recalculatingTotals, setRecalculatingTotals] = useState(false);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -753,6 +754,33 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     },
     [isAdmin, showNotice],
   );
+
+  const handleRecalculateAllTotals = useCallback(async () => {
+    if (
+      !window.confirm(
+        "Bạn có chắc chắn muốn tính toán và đồng bộ lại toàn bộ chuỗi số dư cho tất cả khách hàng trong hệ thống?",
+      )
+    ) {
+      return;
+    }
+
+    setRecalculatingTotals(true);
+    try {
+      const res = await apiRequest<{ ok: boolean; customersRecalculated: number }>("/api/admin/system", {
+        method: "POST",
+      });
+      showNotice(
+        "success",
+        `Đã tính toán và đồng bộ lại chuỗi số dư cho ${res.customersRecalculated} khách hàng.`,
+      );
+      void loadDeposits(filters, page);
+      void loadAdminSystem();
+    } catch (error) {
+      showNotice("error", error instanceof Error ? error.message : "Đồng bộ số dư thất bại.");
+    } finally {
+      setRecalculatingTotals(false);
+    }
+  }, [filters, loadAdminSystem, loadDeposits, page, showNotice]);
 
   const buildDepositQuery = useCallback(
     (filterValues: DepositFilters, pageToLoad: number, limit: number, includeHistory = false) => {
@@ -1586,15 +1614,26 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                       Đo một lượt đọc tổng hợp từ MongoDB; không tạo tải đồng thời lên website production.
                     </p>
                   </div>
-                  <button
-                    className={`${secondaryButton} h-10 px-3 text-xs`}
-                    disabled={adminSystemLoading}
-                    onClick={() => void loadAdminSystem()}
-                    type="button"
-                  >
-                    <RefreshCw className={adminSystemLoading ? "animate-spin" : ""} aria-hidden="true" size={15} />
-                    {adminSystemLoading ? "Đang kiểm tra" : "Kiểm tra hệ thống"}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      className={`${secondaryButton} h-10 px-3 text-xs`}
+                      disabled={recalculatingTotals || adminSystemLoading}
+                      onClick={() => void handleRecalculateAllTotals()}
+                      type="button"
+                    >
+                      <RefreshCw className={recalculatingTotals ? "animate-spin" : ""} aria-hidden="true" size={15} />
+                      {recalculatingTotals ? "Đang đồng bộ..." : "Đồng bộ chuỗi số dư"}
+                    </button>
+                    <button
+                      className={`${secondaryButton} h-10 px-3 text-xs`}
+                      disabled={adminSystemLoading}
+                      onClick={() => void loadAdminSystem()}
+                      type="button"
+                    >
+                      <RefreshCw className={adminSystemLoading ? "animate-spin" : ""} aria-hidden="true" size={15} />
+                      {adminSystemLoading ? "Đang kiểm tra" : "Kiểm tra hệ thống"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm lg:grid-cols-3">
