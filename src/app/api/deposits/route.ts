@@ -145,7 +145,7 @@ async function deductActiveCards(
       { remainingCards: { $gt: 0 } },
       { remainingCards: { $exists: false }, cards: { $gt: 0 } },
     ],
-  }).sort({ createdAt: 1 });
+  }).sort({ depositDate: 1, depositTime: 1, createdAt: 1, _id: 1 });
 
   for (const activeDeposit of activeDeposits) {
     if (remainingCards <= 0) {
@@ -190,7 +190,7 @@ async function deductActiveBalls(
       { remainingBalls: { $gt: 0 } },
       { remainingBalls: { $exists: false }, balls: { $gt: 0 } },
     ],
-  }).sort({ createdAt: 1 });
+  }).sort({ depositDate: 1, depositTime: 1, createdAt: 1, _id: 1 });
 
   for (const activeDeposit of activeDeposits) {
     if (remainingBalls <= 0) {
@@ -264,10 +264,10 @@ export async function GET(request: NextRequest) {
           remainingBalls: 0,
         };
     const depositsQuery = includeHistory
-      ? CustomerDeposit.find(filter, listProjection).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
+      ? CustomerDeposit.find(filter, listProjection).sort({ depositDate: -1, depositTime: -1, createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean()
       : CustomerDeposit.aggregate([
           { $match: filter },
-          { $sort: { createdAt: -1 } },
+          { $sort: { depositDate: -1, depositTime: -1, createdAt: -1, _id: -1 } },
           { $skip: skip },
           { $limit: limit },
           {
