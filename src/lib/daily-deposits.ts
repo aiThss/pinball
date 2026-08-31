@@ -1,6 +1,7 @@
+import type { AnyBulkWriteOperation } from "mongoose";
 import { buildTotalText } from "@/lib/time";
 import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
-import { CustomerDeposit } from "@/models/CustomerDeposit";
+import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 import { CustomerDailyDeposit } from "@/models/CustomerDailyDeposit";
 
 const depositCardAction = cardActions[0];
@@ -142,12 +143,7 @@ export async function recalculateCustomerDepositTotals(phonesInput: string | Ite
 
     let runningCards = 0;
     let runningBalls = 0;
-    const bulkWrites: Array<{
-      updateOne: {
-        filter: { _id: unknown };
-        update: { $set: { totalText: string } };
-      };
-    }> = [];
+    const bulkWrites: AnyBulkWriteOperation<ICustomerDeposit>[] = [];
 
     for (const deposit of deposits) {
       if (deposit.status !== canceledDepositStatus) {
@@ -178,7 +174,7 @@ export async function recalculateCustomerDepositTotals(phonesInput: string | Ite
     }
 
     if (bulkWrites.length > 0) {
-      await CustomerDeposit.bulkWrite(bulkWrites, { timestamps: false });
+      await CustomerDeposit.bulkWrite(bulkWrites);
     }
   }
 }
