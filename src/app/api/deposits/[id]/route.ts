@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
-import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
 import { restoreDeletedWithdrawal } from "@/lib/withdrawal-recovery";
 import { ballActions, cardActions, depositAdminUpdateSchema, depositStaffUpdateSchema } from "@/lib/validation";
-import { CustomerDeposit, type ICustomerDeposit, type IHistorySnapshot } from "@/models/CustomerDeposit";
+import { CustomerDeposit, type ICustomerDeposit } from "@/models/CustomerDeposit";
 import { verifyAdmin } from "@/lib/auth";
 
 type RouteContext = {
@@ -102,23 +102,6 @@ function syncRemainingFields(
   }
 }
 
-function snapshotDeposit(deposit: ICustomerDeposit): IHistorySnapshot {
-  return {
-    fullName: deposit.fullName,
-    phone: deposit.phone,
-    depositDate: deposit.depositDate,
-    depositTime: deposit.depositTime,
-    cardAction: deposit.cardAction,
-    ballAction: deposit.ballAction,
-    cards: deposit.cards,
-    balls: deposit.balls,
-    ...(deposit.remainingCards === undefined ? {} : { remainingCards: deposit.remainingCards }),
-    ...(deposit.remainingBalls === undefined ? {} : { remainingBalls: deposit.remainingBalls }),
-    totalText: deposit.totalText,
-    status: deposit.status,
-  };
-}
-
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
@@ -152,13 +135,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const changes: string[] = [];
     let actorName = "";
+    const beforePhone = deposit.phone;
     const beforeDepositDate = deposit.depositDate;
     const beforeCards = deposit.cards;
     const beforeBalls = deposit.balls;
     const beforeRemainingCards = deposit.remainingCards;
     const beforeRemainingBalls = deposit.remainingBalls;
     const beforeTotalText = deposit.totalText;
-    const beforeSnapshot = snapshotDeposit(deposit);
 
     if (isAdminUpdate) {
       const data = depositAdminUpdateSchema.parse(body);
@@ -192,53 +175,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // Admin corrections are intentionally silent: keep history, updatedByName and updatedAt unchanged.
       await deposit.save({ timestamps: false });
     } else {
-      const updateHistoryId = new Types.ObjectId();
-      const updateContent = changes.join("; ");
-      const updateHistory = {
-        _id: updateHistoryId,
+      deposit.updatedByName = actorName;
+      deposit.history.push({
         at: new Date(),
         actorName,
-        action: "UPDATE" as const,
-        content: updateContent,
-        before: beforeSnapshot,
-        after: snapshotDeposit(deposit),
-      };
-
-      deposit.updatedByName = actorName;
-      deposit.history.push(updateHistory);
+        action: "UPDATE",
+        content: changes.join("; "),
+      });
       await deposit.save();
-
-      const webhookUrl =
-        process.env.TELEGRAM_BOT_WEBHOOK_URL ||
-        process.env.PINBALL_BOT_WEBHOOK_URL ||
-        process.env.BOT_WEBHOOK_URL;
-      if (webhookUrl) {
-        void fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event: "UPDATE",
-            id: deposit._id.toString(),
-            historyId: updateHistoryId.toString(),
-            title: deposit.fullName + " (" + deposit.phone + ")",
-            type: "Cập nhật (Bởi " + actorName + " lúc " + deposit.depositTime + ")",
-            fullName: deposit.fullName,
-            phone: deposit.phone,
-            actorName,
-            depositTime: deposit.depositTime,
-            depositDate: deposit.depositDate,
-            content: updateContent,
-            totalText: deposit.totalText,
-          }),
-        }).catch((error) => {
-          console.error("Lỗi gửi webhook cập nhật tới Telegram Bot:", error.message);
-        });
-      }
     }
 
+    await recalculateCustomerDepositTotals([beforePhone, deposit.phone]);
     await rebuildCustomerDailyTotalsForDates([beforeDepositDate, deposit.depositDate]);
 
-    return NextResponse.json({ deposit: serializeDeposit(deposit) });
+    const refreshed = await CustomerDeposit.findById(deposit._id);
+
+    return NextResponse.json({ deposit: serializeDeposit(refreshed ?? deposit) });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }
@@ -267,6 +219,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const restored = await restoreDeletedWithdrawal(deleted);
     await CustomerDeposit.deleteOne({ _id: deleted._id });
 
+    await recalculateCustomerDepositTotals([deleted.phone]);
     await rebuildCustomerDailyTotalsForDates([deleted.depositDate]);
 
     return NextResponse.json({

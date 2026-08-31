@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
-import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
 import { verifyTelegramMiniAppInitData } from "@/lib/telegram";
@@ -169,6 +169,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     });
     const deposit = result.deposit;
     const changes: string[] = [];
+    const beforePhone = deposit.phone;
     const beforeDepositDate = deposit.depositDate;
     const beforeCards = deposit.cards;
     const beforeBalls = deposit.balls;
@@ -193,11 +194,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // Telegram Mini App is an admin correction path, so it must not create audit traces.
     await deposit.save({ timestamps: false });
+    await recalculateCustomerDepositTotals([beforePhone, deposit.phone]);
     await rebuildCustomerDailyTotalsForDates([beforeDepositDate, deposit.depositDate]);
 
+    const refreshed = await CustomerDeposit.findById(deposit._id);
+    const finalDeposit = refreshed ?? deposit;
+
     return NextResponse.json({
-      deposit: serializeDeposit(deposit),
-      active: deposit.status === activeDepositStatus,
+      deposit: serializeDeposit(finalDeposit),
+      active: finalDeposit.status === activeDepositStatus,
     });
   } catch (error) {
     return jsonError(parseError(error), 400);

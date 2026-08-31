@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError } from "@/lib/api";
-import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { verifyTelegramBotBearer } from "@/lib/telegram";
 import { restoreDeletedWithdrawal } from "@/lib/withdrawal-recovery";
@@ -33,6 +33,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const restored = await restoreDeletedWithdrawal(deleted);
     await CustomerDeposit.deleteOne({ _id: deleted._id });
 
+    await recalculateCustomerDepositTotals(deleted.phone);
     await rebuildCustomerDailyTotalsForDates([deleted.depositDate]);
 
     return NextResponse.json({

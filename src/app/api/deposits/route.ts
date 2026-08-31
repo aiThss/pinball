@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { verifyAdmin } from "@/lib/auth";
-import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
 import { sendPushToAll } from "@/lib/webpush";
@@ -263,47 +263,9 @@ export async function GET(request: NextRequest) {
           remainingCards: 0,
           remainingBalls: 0,
         };
-    const depositsQuery = includeHistory
-      ? CustomerDeposit.find(filter, listProjection).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
-      : CustomerDeposit.aggregate([
-          { $match: filter },
-          { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
-          {
-            $project: {
-              fullName: 1,
-              phone: 1,
-              depositDate: 1,
-              depositTime: 1,
-              cardAction: 1,
-              ballAction: 1,
-              cards: 1,
-              balls: 1,
-              totalText: 1,
-              status: 1,
-              createdByName: 1,
-              updatedByName: 1,
-              createdAt: 1,
-              updatedAt: 1,
-              latestUpdate: {
-                $arrayElemAt: [
-                  {
-                    $filter: {
-                      input: { $ifNull: ["$history", []] },
-                      as: "entry",
-                      cond: { $eq: ["$$entry.action", "UPDATE"] },
-                    },
-                  },
-                  -1,
-                ],
-              },
-            },
-          },
-        ]);
     const [total, deposits] = await Promise.all([
       CustomerDeposit.countDocuments(filter),
-      depositsQuery,
+      CustomerDeposit.find(filter, listProjection).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     ]);
 
     return NextResponse.json({
@@ -426,6 +388,7 @@ export async function POST(request: NextRequest) {
     }
 
     await rebuildCustomerDailyTotalsForDates([depositDate]);
+    await recalculateCustomerDepositTotals(data.phone);
 
     // Build compact push notification body
     const actionParts: string[] = [];

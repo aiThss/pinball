@@ -58,7 +58,6 @@ type Deposit = {
   updatedBy: { displayName: string } | null;
   createdByName?: string;
   updatedByName?: string;
-  latestUpdate?: HistoryEntry | null;
   history: HistoryEntry[];
 };
 
@@ -300,10 +299,6 @@ function creatorName(deposit: Deposit) {
 }
 
 function getLatestUpdateEntry(deposit: Deposit) {
-  if (deposit.latestUpdate?.action === "UPDATE") {
-    return deposit.latestUpdate;
-  }
-
   return [...deposit.history].reverse().find((entry) => entry.action === "UPDATE");
 }
 

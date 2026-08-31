@@ -1,3 +1,4 @@
+import { buildTotalText } from "@/lib/time";
 import { ballActions, cardActions, depositStatuses } from "@/lib/validation";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
 import { CustomerDailyDeposit } from "@/models/CustomerDailyDeposit";
@@ -112,3 +113,73 @@ export async function rebuildCustomerDailyTotalsForDates(dates: Iterable<string 
     }),
   );
 }
+
+function normalizePhones(phones: Iterable<string | undefined>) {
+  return [
+    ...new Set(
+      [...phones]
+        .filter((phone): phone is string => typeof phone === "string" && phone.trim().length > 0)
+        .map((phone) => phone.trim()),
+    ),
+  ];
+}
+
+export async function recalculateCustomerDepositTotals(phonesInput: string | Iterable<string | undefined>) {
+  const phones = typeof phonesInput === "string"
+    ? normalizePhones([phonesInput])
+    : normalizePhones(phonesInput);
+
+  if (phones.length === 0) {
+    return;
+  }
+
+  for (const phone of phones) {
+    const deposits = await CustomerDeposit.find({ phone }).sort({ createdAt: 1, _id: 1 });
+
+    if (deposits.length === 0) {
+      continue;
+    }
+
+    let runningCards = 0;
+    let runningBalls = 0;
+    const bulkWrites: Array<{
+      updateOne: {
+        filter: { _id: unknown };
+        update: { $set: { totalText: string } };
+      };
+    }> = [];
+
+    for (const deposit of deposits) {
+      if (deposit.status !== canceledDepositStatus) {
+        if (deposit.cardAction === withdrawCardAction) {
+          runningCards = Math.max(0, runningCards - (deposit.cards || 0));
+        } else {
+          runningCards += deposit.cards || 0;
+        }
+
+        if (deposit.ballAction === withdrawBallAction) {
+          runningBalls = Math.max(0, runningBalls - (deposit.balls || 0));
+        } else {
+          runningBalls += deposit.balls || 0;
+        }
+      }
+
+      const expectedTotalText = buildTotalText(runningCards, runningBalls);
+
+      if (deposit.totalText !== expectedTotalText) {
+        deposit.totalText = expectedTotalText;
+        bulkWrites.push({
+          updateOne: {
+            filter: { _id: deposit._id },
+            update: { $set: { totalText: expectedTotalText } },
+          },
+        });
+      }
+    }
+
+    if (bulkWrites.length > 0) {
+      await CustomerDeposit.bulkWrite(bulkWrites, { timestamps: false });
+    }
+  }
+}
+
