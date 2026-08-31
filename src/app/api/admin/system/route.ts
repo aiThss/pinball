@@ -92,7 +92,7 @@ export async function POST() {
     }
 
     await connectMongo();
-    const phones = await CustomerDeposit.distinct<string>("phone");
+    const phones = (await CustomerDeposit.distinct("phone")) as string[];
     await recalculateCustomerDepositTotals(phones);
 
     return NextResponse.json({

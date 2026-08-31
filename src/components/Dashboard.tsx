@@ -755,33 +755,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     [isAdmin, showNotice],
   );
 
-  const handleRecalculateAllTotals = useCallback(async () => {
-    if (
-      !window.confirm(
-        "Bạn có chắc chắn muốn tính toán và đồng bộ lại toàn bộ chuỗi số dư cho tất cả khách hàng trong hệ thống?",
-      )
-    ) {
-      return;
-    }
-
-    setRecalculatingTotals(true);
-    try {
-      const res = await apiRequest<{ ok: boolean; customersRecalculated: number }>("/api/admin/system", {
-        method: "POST",
-      });
-      showNotice(
-        "success",
-        `Đã tính toán và đồng bộ lại chuỗi số dư cho ${res.customersRecalculated} khách hàng.`,
-      );
-      void loadDeposits(filters, page);
-      void loadAdminSystem();
-    } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Đồng bộ số dư thất bại.");
-    } finally {
-      setRecalculatingTotals(false);
-    }
-  }, [filters, loadAdminSystem, loadDeposits, page, showNotice]);
-
   const buildDepositQuery = useCallback(
     (filterValues: DepositFilters, pageToLoad: number, limit: number, includeHistory = false) => {
       const params = new URLSearchParams();
@@ -862,6 +835,32 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     },
     [adminDashboardDate, appliedFilters, isAdmin, loadAdminDashboard, loadDeposits, loadSummary],
   );
+
+  const handleRecalculateAllTotals = useCallback(async () => {
+    if (
+      !window.confirm(
+        "Bạn có chắc chắn muốn tính toán và đồng bộ lại toàn bộ chuỗi số dư cho tất cả khách hàng trong hệ thống?",
+      )
+    ) {
+      return;
+    }
+
+    setRecalculatingTotals(true);
+    try {
+      const res = await apiRequest<{ ok: boolean; customersRecalculated: number }>("/api/admin/system", {
+        method: "POST",
+      });
+      showNotice(
+        "success",
+        `Đã tính toán và đồng bộ lại chuỗi số dư cho ${res.customersRecalculated} khách hàng.`,
+      );
+      await Promise.all([refreshData(), loadAdminSystem()]);
+    } catch (error) {
+      showNotice("error", error instanceof Error ? error.message : "Đồng bộ số dư thất bại.");
+    } finally {
+      setRecalculatingTotals(false);
+    }
+  }, [loadAdminSystem, refreshData, showNotice]);
 
   const fetchAllDeposits = useCallback(async (filterValues: DepositFilters) => {
     const allDeposits: Deposit[] = [];
