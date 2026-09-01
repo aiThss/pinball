@@ -21,7 +21,7 @@ import {
 
 const defaultPage = 1;
 const defaultLimit = 50;
-const maxLimit = 100;
+const maxLimit = 500;
 const activeDepositStatus = depositStatuses[0];
 const returnedDepositStatus = depositStatuses[1];
 const depositCardAction = cardActions[0];

@@ -554,6 +554,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [clock, setClock] = useState<ReturnType<typeof getHanoiParts> | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -575,6 +576,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     limit: depositPageLimit,
     hasMore: false,
   });
+  const paginationRef = useRef(pagination);
+  paginationRef.current = pagination;
+  const depositsRef = useRef(deposits);
+  depositsRef.current = deposits;
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
@@ -790,20 +795,42 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   );
 
   const loadDeposits = useCallback(
-    async (filterValues: DepositFilters, pageToLoad = 1, append = false, silent = false) => {
+    async (
+      filterValues: DepositFilters,
+      pageToLoad = 1,
+      append = false,
+      silent = false,
+      customLimit?: number,
+    ) => {
       if (!silent) {
-        setLoading(true);
+        if (append) {
+          setIsLoadingMore(true);
+        } else {
+          setLoading(true);
+        }
       }
 
       try {
-        const params = buildDepositQuery(filterValues, pageToLoad, depositPageLimit);
+        const limitToUse = customLimit ?? depositPageLimit;
+        const params = buildDepositQuery(filterValues, pageToLoad, limitToUse);
         const data = await apiRequest<DepositListResponse>(`/api/deposits?${params.toString()}`);
         setDeposits((current) => (append ? [...current, ...data.deposits] : data.deposits));
+
+        const effectivePage = append
+          ? pageToLoad
+          : customLimit
+          ? Math.max(1, Math.ceil(data.deposits.length / depositPageLimit))
+          : data.page;
+
+        const totalRendered = append
+          ? depositsRef.current.length + data.deposits.length
+          : data.deposits.length;
+
         setPagination({
           total: data.total,
-          page: data.page,
-          limit: data.limit,
-          hasMore: data.hasMore,
+          page: effectivePage,
+          limit: depositPageLimit,
+          hasMore: totalRendered < data.total,
         });
       } catch (error) {
         if (!silent) {
@@ -811,7 +838,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         }
       } finally {
         if (!silent) {
-          setLoading(false);
+          if (append) {
+            setIsLoadingMore(false);
+          } else {
+            setLoading(false);
+          }
         }
       }
     },
@@ -824,9 +855,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       setIsRefreshing(true);
 
       try {
+        const currentCount = Math.max(
+          paginationRef.current.page * depositPageLimit,
+          depositsRef.current.length,
+          depositPageLimit,
+        );
+
         await Promise.all([
           loadSummary(silent),
-          loadDeposits(appliedFilters, 1, false, silent),
+          loadDeposits(appliedFilters, 1, false, silent, currentCount),
           isAdmin ? loadAdminDashboard(adminDashboardDate, silent) : Promise.resolve(),
         ]);
       } finally {
@@ -1118,6 +1155,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   }
 
   function handleLoadMore() {
+    if (isLoadingMore || loading) {
+      return;
+    }
     void loadDeposits(appliedFilters, pagination.page + 1, true);
   }
 
@@ -1253,7 +1293,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       setDepositForm(getDefaultDepositForm(isAdmin));
       setDepositLookup(null);
       void loadSummary();
-      void loadDeposits(appliedFilters, 1);
+      const currentCount = Math.max(
+        paginationRef.current.page * depositPageLimit,
+        depositsRef.current.length,
+        depositPageLimit,
+      );
+      void loadDeposits(appliedFilters, 1, false, true, currentCount);
       if (isAdmin) {
         void loadAdminDashboard(adminDashboardDate);
       }
@@ -1314,7 +1359,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       );
       setEditingDeposit(null);
       void loadSummary();
-      void loadDeposits(appliedFilters, 1);
+      const currentCount = Math.max(
+        paginationRef.current.page * depositPageLimit,
+        depositsRef.current.length,
+        depositPageLimit,
+      );
+      void loadDeposits(appliedFilters, 1, false, true, currentCount);
       if (isAdmin) {
         void loadAdminDashboard(adminDashboardDate);
       }
@@ -1337,7 +1387,12 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       });
       setDeposits((current) => current.filter((item) => item.id !== deposit.id));
       void loadSummary();
-      void loadDeposits(appliedFilters, 1);
+      const currentCount = Math.max(
+        paginationRef.current.page * depositPageLimit,
+        depositsRef.current.length,
+        depositPageLimit,
+      );
+      void loadDeposits(appliedFilters, 1, false, true, currentCount);
       if (isAdmin) {
         void loadAdminDashboard(adminDashboardDate);
       }
@@ -2384,11 +2439,16 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </button>
                 <button
                   className={`${secondaryButton} w-full sm:w-auto`}
+                  disabled={loading || isRefreshing}
                   onClick={handleReloadDeposits}
                   type="button"
                 >
-                  <RefreshCw aria-hidden="true" size={18} />
-                  {loading ? "Đang tải" : "Tải lại"}
+                  <RefreshCw
+                    className={loading || isRefreshing ? "animate-spin" : ""}
+                    aria-hidden="true"
+                    size={18}
+                  />
+                  {loading || isRefreshing ? "Đang tải" : "Tải lại"}
                 </button>
               </div>
             </div>
@@ -2696,12 +2756,16 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               <div className="flex flex-col items-center gap-2 border-t border-[#E5E7EB] px-4 py-4 sm:px-5">
                 <button
                   className={secondaryButton}
-                  disabled={loading}
+                  disabled={isLoadingMore || loading}
                   onClick={handleLoadMore}
                   type="button"
                 >
-                  <RefreshCw aria-hidden="true" size={18} />
-                  {loading ? "Đang tải" : "Tải thêm"}
+                  <RefreshCw
+                    className={isLoadingMore ? "animate-spin" : ""}
+                    aria-hidden="true"
+                    size={18}
+                  />
+                  {isLoadingMore ? "Đang tải thêm..." : "Tải thêm"}
                 </button>
                 <div className="text-xs text-[#64748B]">
                   Đã hiển thị {deposits.length}/{pagination.total}
