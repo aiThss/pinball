@@ -51,6 +51,7 @@ type Deposit = {
   cards: number;
   balls: number;
   totalText: string;
+  currentTotalText?: string;
   status: Status;
   createdAt: string;
   updatedAt: string;
@@ -2520,8 +2521,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   </div>
 
                   <div className="mt-3 rounded-md border border-[#E5E7EB] bg-white p-3 text-sm">
-                    <div className="text-xs font-semibold text-[#64748B]">Tổng</div>
-                    <div className="mt-1 font-bold">{deposit.totalText}</div>
+                    <div className="text-xs font-semibold text-[#64748B]">Tổng đang giữ</div>
+                    <div className="mt-1 font-bold">{deposit.currentTotalText ?? deposit.totalText}</div>
                   </div>
 
                   <div className="mt-3 space-y-1 text-xs text-[#64748B]">
