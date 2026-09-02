@@ -577,9 +577,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     hasMore: false,
   });
   const paginationRef = useRef(pagination);
-  paginationRef.current = pagination;
   const depositsRef = useRef(deposits);
-  depositsRef.current = deposits;
+
+  useEffect(() => {
+    paginationRef.current = pagination;
+    depositsRef.current = deposits;
+  }, [deposits, pagination]);
+
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [editingDeposit, setEditingDeposit] = useState<Deposit | null>(null);
