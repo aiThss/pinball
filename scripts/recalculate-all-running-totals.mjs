@@ -12,6 +12,8 @@ const depositStatuses = ["Đang gửi", "Đã nhận lại", "Đã đổi quà",
 
 const withdrawCardAction = cardActions[1];
 const withdrawBallAction = ballActions[1];
+const returnedDepositStatus = depositStatuses[1];
+const exchangedDepositStatus = depositStatuses[2];
 const canceledDepositStatus = depositStatuses[3];
 
 function buildTotalText(cards, balls) {
@@ -42,13 +44,24 @@ async function recalculateAll() {
     const bulkWrites = [];
 
     for (const deposit of deposits) {
-      if (deposit.status !== canceledDepositStatus) {
+      const isCompletedStatus =
+        deposit.status === returnedDepositStatus || deposit.status === exchangedDepositStatus;
+      const shouldApplyCards =
+        deposit.status !== canceledDepositStatus &&
+        (!isCompletedStatus || deposit.cardAction === withdrawCardAction);
+      const shouldApplyBalls =
+        deposit.status !== canceledDepositStatus &&
+        (!isCompletedStatus || deposit.ballAction === withdrawBallAction);
+
+      if (shouldApplyCards) {
         if (deposit.cardAction === withdrawCardAction) {
           runningCards = Math.max(0, runningCards - (deposit.cards || 0));
         } else {
           runningCards += deposit.cards || 0;
         }
+      }
 
+      if (shouldApplyBalls) {
         if (deposit.ballAction === withdrawBallAction) {
           runningBalls = Math.max(0, runningBalls - (deposit.balls || 0));
         } else {
