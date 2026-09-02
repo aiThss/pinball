@@ -51,7 +51,7 @@ type Deposit = {
   cards: number;
   balls: number;
   totalText: string;
-  currentTotalText?: string;
+  snapshotTotalText?: string;
   status: Status;
   createdAt: string;
   updatedAt: string;
@@ -1480,7 +1480,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           header("Giờ gửi"),
           header("Thẻ"),
           header("Bi"),
-          header("Tổng sau bản ghi"),
+          header("Tổng đang giữ (lúc xuất)"),
           header("Gửi/Lấy thẻ"),
           header("Gửi/Lấy bi"),
           header("Nhân viên tạo"),
@@ -2522,7 +2522,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
                   <div className="mt-3 rounded-md border border-[#E5E7EB] bg-white p-3 text-sm">
                     <div className="text-xs font-semibold text-[#64748B]">Tổng đang giữ</div>
-                    <div className="mt-1 font-bold">{deposit.currentTotalText ?? deposit.totalText}</div>
+                    <div className="mt-1 font-bold">{deposit.totalText}</div>
                   </div>
 
                   <div className="mt-3 space-y-1 text-xs text-[#64748B]">
@@ -2613,7 +2613,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     {isAdmin ? <th className="px-5 py-3">Giờ gửi</th> : null}
                     <th className="px-5 py-3 text-right">Thẻ</th>
                     <th className="px-5 py-3 text-right">Bi</th>
-                    <th className="px-5 py-3">Tổng</th>
+                    <th className="px-5 py-3">Tổng đang giữ</th>
                     <th className="px-5 py-3">Gửi/Lấy thẻ</th>
                     <th className="px-5 py-3">Gửi/Lấy bi</th>
                     <th className="px-5 py-3">Trạng thái</th>

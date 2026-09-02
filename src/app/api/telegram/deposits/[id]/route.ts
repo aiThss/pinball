@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { getHeldTotalTextByPhone } from "@/lib/held-totals";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
 import { verifyTelegramMiniAppInitData } from "@/lib/telegram";
@@ -125,6 +126,10 @@ function syncRemainingFields(
   }
 }
 
+async function serializeWithHeldTotal(deposit: ICustomerDeposit) {
+  return serializeDeposit(deposit, { totalText: await getHeldTotalTextByPhone(deposit.phone) });
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const auth = authorizeTelegram(request);
@@ -139,7 +144,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return result.error;
     }
 
-    return NextResponse.json({ deposit: serializeDeposit(result.deposit) });
+    return NextResponse.json({ deposit: await serializeWithHeldTotal(result.deposit) });
   } catch (error) {
     return jsonError(parseError(error), 500);
   }
@@ -186,7 +191,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     applyChange(deposit, "status", data.status, changes);
 
     if (changes.length === 0) {
-      return NextResponse.json({ deposit: serializeDeposit(deposit) });
+      return NextResponse.json({ deposit: await serializeWithHeldTotal(deposit) });
     }
 
     syncRemainingFields(deposit, beforeCards, beforeBalls, beforeRemainingCards, beforeRemainingBalls);
@@ -201,7 +206,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const finalDeposit = refreshed ?? deposit;
 
     return NextResponse.json({
-      deposit: serializeDeposit(finalDeposit),
+      deposit: await serializeWithHeldTotal(finalDeposit),
       active: finalDeposit.status === activeDepositStatus,
     });
   } catch (error) {

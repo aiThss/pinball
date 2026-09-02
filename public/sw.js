@@ -1,7 +1,7 @@
-const CACHE_VERSION = "pinball-pwa-v2";
+const CACHE_VERSION = "pinball-pwa-v3";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
-const API_TIMEOUT_MS = 3000;
+const API_TIMEOUT_MS = 10000;
 
 const SHELL_ASSETS = [
   "/",
@@ -54,7 +54,9 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.pathname.startsWith("/api/")) {
-    event.respondWith(networkFirstApi(request));
+    // Balance data must never fall back to an old cached response. Returning an
+    // error is safer than showing staff a stale thẻ/bi total.
+    event.respondWith(networkOnlyApi(request));
     return;
   }
 
@@ -108,24 +110,10 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-async function networkFirstApi(request) {
-  const cache = await caches.open(RUNTIME_CACHE);
-
+async function networkOnlyApi(request) {
   try {
-    const response = await fetchWithTimeout(request, API_TIMEOUT_MS);
-
-    if (response.ok) {
-      await cache.put(request, response.clone());
-    }
-
-    return response;
+    return await fetchWithTimeout(request, API_TIMEOUT_MS);
   } catch {
-    const cached = await cache.match(request);
-
-    if (cached) {
-      return cached;
-    }
-
     return new Response(JSON.stringify({ message: "Mất kết nối. Vui lòng thử lại khi có mạng." }), {
       status: 503,
       headers: {

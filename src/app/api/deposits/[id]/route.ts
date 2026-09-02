@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { getHeldTotalTextByPhone } from "@/lib/held-totals";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText } from "@/lib/time";
 import { restoreDeletedWithdrawal } from "@/lib/withdrawal-recovery";
@@ -118,6 +119,10 @@ function snapshotDeposit(deposit: ICustomerDeposit): IHistorySnapshot {
   };
 }
 
+async function serializeWithHeldTotal(deposit: ICustomerDeposit) {
+  return serializeDeposit(deposit, { totalText: await getHeldTotalTextByPhone(deposit.phone) });
+}
+
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
@@ -182,7 +187,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (changes.length === 0) {
-      return NextResponse.json({ deposit: serializeDeposit(deposit) });
+      return NextResponse.json({ deposit: await serializeWithHeldTotal(deposit) });
     }
 
     syncRemainingFields(deposit, beforeCards, beforeBalls, beforeRemainingCards, beforeRemainingBalls);
@@ -241,7 +246,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const refreshed = await CustomerDeposit.findById(deposit._id);
 
-    return NextResponse.json({ deposit: serializeDeposit(refreshed ?? deposit) });
+    return NextResponse.json({ deposit: await serializeWithHeldTotal(refreshed ?? deposit) });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }
