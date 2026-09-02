@@ -1479,7 +1479,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           header("Giờ gửi"),
           header("Thẻ"),
           header("Bi"),
-          header("Tổng chuỗi sau bản ghi"),
+          header("Tổng sau bản ghi"),
           header("Gửi/Lấy thẻ"),
           header("Gửi/Lấy bi"),
           header("Nhân viên tạo"),
@@ -2321,7 +2321,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   <div className="truncate text-sm font-bold text-[#0F172A]">{selectedHistoryCustomer.fullName}</div>
                   <div data-phone-number className="text-xs font-semibold text-[#2563EB]">{selectedHistoryCustomer.phone}</div>
                   <div className="mt-0.5 text-xs text-[#64748B]">
-                    Đang giữ hiện tại — Thẻ: {selectedHistoryCustomer.totalCards} | Bi: {selectedHistoryCustomer.totalBalls}
+                    Thẻ: {selectedHistoryCustomer.totalCards} | Bi: {selectedHistoryCustomer.totalBalls}
                   </div>
                 </div>
                 {selectedHistoryCustomer.activeDeposits > 0 ? (
@@ -2334,12 +2334,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   </span>
                 )}
               </div>
-            ) : null}
-
-            {selectedHistoryCustomer ? (
-              <p className="mb-3 text-xs leading-5 text-[#64748B]">
-                “Đang giữ hiện tại” là số thẻ/bi còn đang gửi. “Tổng sau bản ghi” là số dư của chuỗi giao dịch ngay tại thời điểm tạo dòng đó.
-              </p>
             ) : null}
 
             <form onSubmit={handleSearch}>
@@ -2526,9 +2520,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   </div>
 
                   <div className="mt-3 rounded-md border border-[#E5E7EB] bg-white p-3 text-sm">
-                    <div className="text-xs font-semibold text-[#64748B]">Tổng sau bản ghi</div>
+                    <div className="text-xs font-semibold text-[#64748B]">Tổng</div>
                     <div className="mt-1 font-bold">{deposit.totalText}</div>
-                    <div className="mt-1 text-xs text-[#64748B]">Theo chuỗi giao dịch tại thời điểm ghi nhận</div>
                   </div>
 
                   <div className="mt-3 space-y-1 text-xs text-[#64748B]">
@@ -2619,12 +2612,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     {isAdmin ? <th className="px-5 py-3">Giờ gửi</th> : null}
                     <th className="px-5 py-3 text-right">Thẻ</th>
                     <th className="px-5 py-3 text-right">Bi</th>
-                    <th
-                      className="px-5 py-3"
-                      title="Số dư của chuỗi giao dịch ngay sau khi tạo bản ghi này"
-                    >
-                      Tổng sau bản ghi
-                    </th>
+                    <th className="px-5 py-3">Tổng</th>
                     <th className="px-5 py-3">Gửi/Lấy thẻ</th>
                     <th className="px-5 py-3">Gửi/Lấy bi</th>
                     <th className="px-5 py-3">Trạng thái</th>
