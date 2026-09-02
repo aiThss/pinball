@@ -44,6 +44,10 @@ type ActiveTotal = {
   totalBalls: number;
 };
 
+type CurrentTotal = ActiveTotal & {
+  _id: string;
+};
+
 function getRemainingCards(deposit: ICustomerDeposit) {
   return deposit.remainingCards ?? deposit.cards;
 }
@@ -128,6 +132,43 @@ async function getActiveTotalByPhone(phone: string) {
     cards: activeTotal?.totalCards ?? 0,
     balls: activeTotal?.totalBalls ?? 0,
   };
+}
+
+async function getActiveTotalsByPhone(phones: Iterable<string>) {
+  const normalizedPhones = [...new Set([...phones].filter(Boolean))];
+
+  if (normalizedPhones.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const totals = await CustomerDeposit.aggregate<CurrentTotal>([
+    { $match: { phone: { $in: normalizedPhones }, status: activeDepositStatus } },
+    {
+      $group: {
+        _id: "$phone",
+        totalCards: {
+          $sum: {
+            $cond: [
+              { $ne: ["$cardAction", withdrawCardAction] },
+              { $ifNull: ["$remainingCards", "$cards"] },
+              0,
+            ],
+          },
+        },
+        totalBalls: {
+          $sum: {
+            $cond: [
+              { $ne: ["$ballAction", withdrawBallAction] },
+              { $ifNull: ["$remainingBalls", "$balls"] },
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ]);
+
+  return new Map(totals.map((total) => [total._id, buildTotalText(total.totalCards, total.totalBalls)]));
 }
 
 async function deductActiveCards(
@@ -306,8 +347,18 @@ export async function GET(request: NextRequest) {
       depositsQuery,
     ]);
 
+    const serializedDeposits = deposits.map((deposit) => serializeDeposit(deposit));
+    const currentTotals = await getActiveTotalsByPhone(
+      serializedDeposits.map((deposit) => String(deposit.phone ?? "")),
+    );
+
     return NextResponse.json({
-      deposits: deposits.map((deposit) => serializeDeposit(deposit)),
+      deposits: serializedDeposits.map((deposit) => ({
+        ...deposit,
+        // `totalText` is an audit snapshot. The app must show the actual balance
+        // still being held, which may change after a later withdrawal.
+        currentTotalText: currentTotals.get(String(deposit.phone ?? "")) ?? buildTotalText(0, 0),
+      })),
       total,
       page,
       limit,
@@ -477,7 +528,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ deposit: serializeDeposit(deposit) }, { status: 201 });
+    return NextResponse.json({
+      deposit: {
+        ...serializeDeposit(deposit),
+        currentTotalText: buildTotalText(nextCards, nextBalls),
+      },
+    }, { status: 201 });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }
