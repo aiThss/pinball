@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { verifyAdmin } from "@/lib/auth";
-import { getHeldTotalTextByPhone } from "@/lib/held-totals";
 import { connectMongo } from "@/lib/mongodb";
 import { CustomerDeposit } from "@/models/CustomerDeposit";
 
@@ -29,9 +28,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return jsonError("Không tìm thấy bản ghi.", 404);
     }
 
-    return NextResponse.json({
-      deposit: serializeDeposit(deposit, { totalText: await getHeldTotalTextByPhone(deposit.phone) }),
-    });
+    return NextResponse.json({ deposit: serializeDeposit(deposit) });
   } catch (error) {
     return jsonError(parseError(error), 500);
   }

@@ -65,7 +65,6 @@ export function serializeDeposit(deposit: unknown, overrides: Partial<{ totalTex
   const latestUpdate =
     value.latestUpdate ??
     [...history].reverse().find((item) => (item as Record<string, unknown>).action === "UPDATE");
-  const snapshotTotalText = normalizeTotalText(value.totalText, value.cards, value.balls);
 
   return {
     id: String(value._id),
@@ -77,10 +76,7 @@ export function serializeDeposit(deposit: unknown, overrides: Partial<{ totalTex
     ballAction: value.ballAction ?? ballActions[0],
     cards: value.cards,
     balls: value.balls,
-    // The raw value is retained as an audit snapshot. API callers may replace
-    // `totalText` with the live held balance without losing that history.
-    totalText: overrides.totalText ?? snapshotTotalText,
-    snapshotTotalText,
+    totalText: overrides.totalText ?? normalizeTotalText(value.totalText, value.cards, value.balls),
     status: value.status,
     createdByName: value.createdByName,
     updatedByName: value.updatedByName,

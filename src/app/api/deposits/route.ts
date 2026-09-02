@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { verifyAdmin } from "@/lib/auth";
 import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
-import { getHeldTotalByPhone, getHeldTotalsByPhone } from "@/lib/held-totals";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
 import { sendPushToAll } from "@/lib/webpush";
@@ -39,6 +38,11 @@ function parsePositiveInteger(value: string | null, fallback: number) {
 
   return parsed;
 }
+
+type ActiveTotal = {
+  totalCards: number;
+  totalBalls: number;
+};
 
 function getRemainingCards(deposit: ICustomerDeposit) {
   return deposit.remainingCards ?? deposit.cards;
@@ -93,7 +97,37 @@ function buildActionContent({
 }
 
 async function getActiveTotalByPhone(phone: string) {
-  return getHeldTotalByPhone(phone);
+  const [activeTotal] = await CustomerDeposit.aggregate<ActiveTotal>([
+    { $match: { phone, status: activeDepositStatus } },
+    {
+      $group: {
+        _id: null,
+        totalCards: {
+          $sum: {
+            $cond: [
+              { $ne: ["$cardAction", withdrawCardAction] },
+              { $ifNull: ["$remainingCards", "$cards"] },
+              0,
+            ],
+          },
+        },
+        totalBalls: {
+          $sum: {
+            $cond: [
+              { $ne: ["$ballAction", withdrawBallAction] },
+              { $ifNull: ["$remainingBalls", "$balls"] },
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ]);
+
+  return {
+    cards: activeTotal?.totalCards ?? 0,
+    balls: activeTotal?.totalBalls ?? 0,
+  };
 }
 
 async function deductActiveCards(
@@ -272,19 +306,13 @@ export async function GET(request: NextRequest) {
       depositsQuery,
     ]);
 
-    const currentTotals = await getHeldTotalsByPhone(deposits.map((deposit) => String(deposit.phone ?? "")));
-
     return NextResponse.json({
-      deposits: deposits.map((deposit) => {
-        const total = currentTotals.get(String(deposit.phone ?? "")) ?? { cards: 0, balls: 0 };
-
-        return serializeDeposit(deposit, { totalText: buildTotalText(total.cards, total.balls) });
-      }),
+      deposits: deposits.map((deposit) => serializeDeposit(deposit)),
       total,
       page,
       limit,
       hasMore: skip + deposits.length < total,
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return jsonError(parseError(error), 500);
   }
@@ -399,6 +427,7 @@ export async function POST(request: NextRequest) {
 
     await rebuildCustomerDailyTotalsForDates([depositDate]);
     await recalculateCustomerDepositTotals(data.phone);
+    const refreshedDeposit = await CustomerDeposit.findById(deposit._id);
 
     // Build compact push notification body
     const actionParts: string[] = [];
@@ -449,9 +478,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
-      deposit: serializeDeposit(deposit, { totalText: buildTotalText(nextCards, nextBalls) }),
-    }, { status: 201 });
+    return NextResponse.json({ deposit: serializeDeposit(refreshedDeposit ?? deposit) }, { status: 201 });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }
