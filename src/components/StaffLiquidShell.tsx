@@ -130,7 +130,14 @@ export default function StaffLiquidShell({
 
     let mount: HTMLDivElement | null = null;
     const ensureMount = () => {
-      const refreshButton = Array.from(shell.querySelectorAll<HTMLButtonElement>("button")).find((button) => {
+      const buttons = Array.from(shell.querySelectorAll<HTMLButtonElement>("button"));
+      const autoButton = buttons.find((button) => {
+        const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        return text === "Tự động";
+      });
+      if (autoButton) autoButton.style.display = "none";
+
+      const refreshButton = buttons.find((button) => {
         const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
         return text.includes("Làm mới") && !text.includes("Đồng bộ");
       });
