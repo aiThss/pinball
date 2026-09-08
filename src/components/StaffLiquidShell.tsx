@@ -33,21 +33,13 @@ function capitalizeStaffName(value: string) {
 }
 
 function handleStaffNameChange(event: FormEvent<HTMLDivElement>, mode: ShellMode) {
-  if (mode !== "staff") {
-    return;
-  }
+  if (mode !== "staff") return;
 
   const target = event.target;
-
-  if (!(target instanceof HTMLInputElement) || target.placeholder !== "Ví dụ: Danh Thai") {
-    return;
-  }
+  if (!(target instanceof HTMLInputElement) || target.placeholder !== "Ví dụ: Danh Thai") return;
 
   const capitalizedName = capitalizeStaffName(target.value);
-
-  if (capitalizedName !== target.value) {
-    target.value = capitalizedName;
-  }
+  if (capitalizedName !== target.value) target.value = capitalizedName;
 }
 
 function getInitialTheme(themeStorageKey: string): StaffTheme {
@@ -87,6 +79,7 @@ export default function StaffLiquidShell({
   const [syncingTotals, setSyncingTotals] = useState(false);
   const [showGateFooter, setShowGateFooter] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const initialTheme = getInitialTheme(themeStorageKey);
     const timer = window.setTimeout(() => {
@@ -137,22 +130,25 @@ export default function StaffLiquidShell({
 
     let mount: HTMLDivElement | null = null;
     const ensureMount = () => {
-      const refreshButton = Array.from(shell.querySelectorAll<HTMLButtonElement>("button[title]"))
-        .find((button) => button.title === "Làm mới lịch sử bản ghi ngay");
+      const refreshButton = Array.from(shell.querySelectorAll<HTMLButtonElement>("button")).find((button) => {
+        const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        return text.includes("Làm mới") && !text.includes("Đồng bộ");
+      });
 
-      if (!refreshButton) return;
+      if (!refreshButton || !refreshButton.parentElement) return;
       if (mount?.isConnected && mount.previousElementSibling === refreshButton) return;
 
       mount?.remove();
       mount = document.createElement("div");
-      mount.className = "flex shrink-0";
-      refreshButton.parentElement?.appendChild(mount);
+      mount.className = "flex shrink-0 items-center";
+      refreshButton.parentElement.insertBefore(mount, refreshButton.nextSibling);
       setSyncTotalsMount(mount);
     };
 
     ensureMount();
     const observer = new MutationObserver(ensureMount);
     observer.observe(shell, { childList: true, subtree: true });
+
     return () => {
       observer.disconnect();
       mount?.remove();
@@ -201,9 +197,7 @@ export default function StaffLiquidShell({
   async function handleAdminLogout() {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
-      if (response.ok) {
-        router.replace("/");
-      }
+      if (response.ok) router.replace("/");
     } catch {
       // Keep the current session intact if the network request cannot complete.
     }
@@ -222,9 +216,7 @@ export default function StaffLiquidShell({
       const response = await fetch("/api/deposits/recalculate", { method: "POST" });
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
-        throw new Error(data.message ?? "Đồng bộ số dư thất bại.");
-      }
+      if (!response.ok) throw new Error(data.message ?? "Đồng bộ số dư thất bại.");
 
       window.alert(`Đã tính toán và đồng bộ lại chuỗi số dư cho ${data.customersRecalculated ?? 0} khách hàng.`);
       window.location.reload();
