@@ -73,6 +73,7 @@
     0 8px 22px rgba(0, 0, 0, 0.28) !important;
 }
 
+
 .darkContrastShell[data-staff-theme="dark"] :global(input::placeholder),
 .darkContrastShell[data-staff-theme="dark"] :global(textarea::placeholder) {
   color: #aeb0b8 !important;
@@ -111,4 +112,32 @@
 .darkContrastShell[data-staff-theme="dark"] :global(option) {
   color: #ffffff;
   background: #202024;
+}
+
+.darkContrastShell[data-staff-theme="dark"] :global(button[class*="bg-rose-50"]) {
+  color: #fca5a5 !important;
+  background: rgba(159, 18, 57, 0.3) !important;
+  border-color: rgba(244, 63, 94, 0.4) !important;
+}
+
+.darkContrastShell[data-staff-theme="dark"] :global(button[class*="bg-slate-50"]) {
+  color: #94a3b8 !important;
+  background: rgba(30, 41, 59, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.darkContrastShell[data-staff-theme="dark"] :global(button[class*="bg-slate-900"]) {
+  color: #ffffff !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+.darkContrastShell[data-staff-theme="dark"] :global(button[class*="bg-slate-900"]:hover) {
+  background: rgba(30, 41, 59, 0.95) !important;
+}
+
+.darkContrastShell[data-staff-theme="dark"] :global(input[class*="bg-blue-50"]) {
+  color: #93c5fd !important;
+  background: rgba(30, 58, 138, 0.45) !important;
+  border-color: rgba(96, 165, 250, 0.5) !important;
 }

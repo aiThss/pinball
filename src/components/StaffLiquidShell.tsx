@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Sun,
   Ticket,
+  X,
 } from "lucide-react";
 import styles from "./StaffLiquidShell.module.css";
 import roundedStyles from "./StaffRoundedCards.module.css";
@@ -122,10 +123,7 @@ export default function StaffLiquidShell({
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== "staff") {
-      setSyncTotalsMount(null);
-      return;
-    }
+    if (mode !== "staff") return;
 
     const shell = shellRef.current;
     if (!shell) return;
@@ -145,11 +143,23 @@ export default function StaffLiquidShell({
       });
 
       if (!refreshButton || !refreshButton.parentElement) return;
+
+      const clearButton = buttons.find((button) => {
+        const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        return text.includes("Xóa lọc");
+      });
+      if (clearButton && !clearButton.dataset.clearedBound) {
+        clearButton.dataset.clearedBound = "true";
+        clearButton.addEventListener("click", () => {
+          handleHistoryDateChange("");
+        });
+      }
+
       if (mount?.isConnected && mount.previousElementSibling === refreshButton) return;
 
       mount?.remove();
       mount = document.createElement("div");
-      mount.className = "flex shrink-0 items-center gap-2";
+      mount.className = "contents";
       refreshButton.parentElement.insertBefore(mount, refreshButton.nextSibling);
       setSyncTotalsMount(mount);
     };
@@ -326,24 +336,38 @@ export default function StaffLiquidShell({
         <>
           <button
             type="button"
-            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#2563EB] bg-[#2563EB] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1D4ED8] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-blue-600 bg-blue-600 px-2.5 sm:px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={syncingTotals}
             onClick={() => void handleStaffSyncTotals()}
             title="Đồng bộ toàn bộ chuỗi số dư"
           >
-            <RefreshCw className={syncingTotals ? "animate-spin" : ""} aria-hidden="true" size={13} />
+            <RefreshCw className={`shrink-0 ${syncingTotals ? "animate-spin" : ""}`} aria-hidden="true" size={12} />
             <span>{syncingTotals ? "Đang đồng bộ..." : "Đồng bộ"}</span>
           </button>
-          <label className="relative flex h-8 shrink-0 items-center" title="Lọc lịch sử theo ngày gửi bản ghi">
+          <div className="relative flex h-8 shrink-0 items-center" title="Lọc lịch sử theo ngày gửi bản ghi">
             <span className="sr-only">Ngày gửi</span>
             <input
               aria-label="Ngày gửi"
-              className="h-8 w-[140px] rounded-full border border-[#CBD5E1] bg-white px-3 text-xs font-semibold text-[#334155] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10"
+              className={`h-8 rounded-full border text-xs font-semibold outline-none transition shadow-xs ${
+                historyDate
+                  ? "w-[125px] sm:w-[135px] border-blue-300 bg-blue-50/70 pl-2.5 pr-6 text-blue-800 font-bold focus:border-blue-600"
+                  : "w-[105px] sm:w-[125px] border-[#CBD5E1] bg-white px-2.5 text-[#334155] hover:border-[#94A3B8] focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10"
+              }`}
               type="date"
               value={historyDate}
               onChange={(event) => handleHistoryDateChange(event.target.value)}
             />
-          </label>
+            {historyDate ? (
+              <button
+                type="button"
+                className="absolute right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-blue-600 hover:bg-blue-200/60 transition"
+                onClick={() => handleHistoryDateChange("")}
+                title="Xóa ngày lọc"
+              >
+                <X aria-hidden="true" size={10} />
+              </button>
+            ) : null}
+          </div>
         </>,
         syncTotalsMount,
       )

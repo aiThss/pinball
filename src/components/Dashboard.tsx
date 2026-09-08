@@ -21,6 +21,7 @@ import {
   Trophy,
   UserRound,
   X,
+  RotateCcw,
   ChevronDown,
   ChevronUp,
   type LucideIcon,
@@ -781,7 +782,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         params.set("phone", phone);
       }
 
-      if (isAdmin && filterValues.date) {
+      if (filterValues.date) {
         params.set("date", filterValues.date);
       }
 
@@ -1577,6 +1578,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
     }
   }
 
+  const hasActiveFilters = Boolean(
+    historyQuery.trim() ||
+      selectedHistoryCustomer ||
+      filters.status ||
+      filters.date ||
+      filters.name.trim() ||
+      filters.phone.trim(),
+  );
+
   return (
     <main className={`min-h-screen text-[#0F172A] ${isAdmin ? "bg-[#F1F5F9]" : "bg-[#F8FAFC]"}`}>
       <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
@@ -2263,64 +2273,84 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             </form>
           </section>
 
-          <section className="rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold">Lịch sử bản ghi</h2>
+          <section className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-3.5 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 shrink-0">
+                <h2 className="text-base font-bold text-[#0F172A]">Lịch sử bản ghi</h2>
                 {isRefreshing ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-[#64748B]">
-                    <RefreshCw className="animate-spin text-[#2563EB]" size={12} />
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-2 py-0.5 text-xs font-medium text-[#2563EB]">
+                    <RefreshCw className="animate-spin text-[#2563EB]" size={11} />
                     <span className="hidden sm:inline">Đang cập nhật...</span>
                   </span>
                 ) : null}
               </div>
 
-              <div className="flex items-center gap-2">
-                {selectedHistoryCustomer ? (
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-full">
+                {/* Nút 1: Xóa lọc */}
+                <button
+                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-2.5 sm:px-3 text-xs font-semibold shadow-xs transition active:scale-95 ${
+                    hasActiveFilters
+                      ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 cursor-pointer"
+                      : "border-slate-200 bg-slate-50 text-slate-400 opacity-50 cursor-not-allowed"
+                  }`}
+                  disabled={!hasActiveFilters || isRefreshing}
+                  onClick={handleClearFilters}
+                  title={hasActiveFilters ? "Xóa các bộ lọc đang chọn" : "Chưa có bộ lọc nào"}
+                  type="button"
+                >
+                  <RotateCcw aria-hidden="true" size={12} />
+                  <span>Xóa lọc</span>
+                </button>
+
+                {/* Nút 2: Tự động (chỉ dành cho Admin) */}
+                {isAdmin ? (
                   <button
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-1 text-xs font-semibold text-[#334155] transition hover:bg-[#EEF2F7]"
-                    onClick={handleClearFilters}
+                    className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-2.5 sm:px-3 text-xs font-semibold shadow-xs transition active:scale-95 ${
+                      autoRefreshEnabled
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                    onClick={() => setAutoRefreshEnabled((prev) => !prev)}
+                    title={
+                      autoRefreshEnabled
+                        ? "Tắt tự động làm mới (mỗi 10s)"
+                        : "Bật tự động làm mới (mỗi 10s)"
+                    }
                     type="button"
                   >
-                    <X aria-hidden="true" size={12} />
-                    Xóa lọc
+                    {autoRefreshEnabled ? (
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                      </span>
+                    ) : (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-slate-300" />
+                    )}
+                    <span>Tự động</span>
                   </button>
                 ) : null}
 
+                {/* Nút 3: Làm mới */}
                 <button
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
-                    autoRefreshEnabled
-                      ? "border-[#86EFAC] bg-[#DCFCE7] text-[#166534]"
-                      : "border-[#CBD5E1] bg-[#F8FAFC] text-[#64748B]"
-                  }`}
-                  onClick={() => setAutoRefreshEnabled((prev) => !prev)}
-                  title={autoRefreshEnabled ? "Tắt tự động làm mới (mỗi 10s)" : "Bật tự động làm mới (mỗi 10s)"}
-                  type="button"
-                >
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      autoRefreshEnabled ? "bg-[#16A34A] animate-pulse" : "bg-[#94A3B8]"
-                    }`}
-                  />
-                  <span>Tự động</span>
-                </button>
-
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#111827] bg-[#111827] px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1F2937] active:scale-95 disabled:opacity-50"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-900 bg-slate-900 px-2.5 sm:px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-slate-800 active:scale-95 disabled:opacity-50"
                   disabled={isRefreshing}
                   onClick={() => void refreshData({ silent: false })}
                   title="Làm mới lịch sử bản ghi ngay"
                   type="button"
                 >
-                  <RefreshCw className={isRefreshing ? "animate-spin" : ""} aria-hidden="true" size={13} />
-                  <span>Làm mới</span>
+                  <RefreshCw
+                    className={`shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
+                    aria-hidden="true"
+                    size={12}
+                  />
+                  <span>{isRefreshing ? "Đang tải" : "Làm mới"}</span>
                 </button>
               </div>
             </div>
 
             {/* Selected customer preview */}
             {selectedHistoryCustomer ? (
-              <div className="mb-3 flex items-center gap-3 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-2.5">
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-bold text-[#0F172A]">{selectedHistoryCustomer.fullName}</div>
                   <div data-phone-number className="text-xs font-semibold text-[#2563EB]">{selectedHistoryCustomer.phone}</div>
@@ -2328,15 +2358,25 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     Thẻ: {selectedHistoryCustomer.totalCards} | Bi: {selectedHistoryCustomer.totalBalls}
                   </div>
                 </div>
-                {selectedHistoryCustomer.activeDeposits > 0 ? (
-                  <span className="shrink-0 rounded-md bg-[#DBEAFE] px-2 py-0.5 text-xs font-semibold text-[#2563EB]">
-                    {selectedHistoryCustomer.activeDeposits} đang gửi
-                  </span>
-                ) : (
-                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${statusClass(selectedHistoryCustomer.latestStatus)}`}>
-                    {selectedHistoryCustomer.latestStatus}
-                  </span>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  {selectedHistoryCustomer.activeDeposits > 0 ? (
+                    <span className="rounded-md bg-[#DBEAFE] px-2 py-0.5 text-xs font-semibold text-[#2563EB]">
+                      {selectedHistoryCustomer.activeDeposits} đang gửi
+                    </span>
+                  ) : (
+                    <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${statusClass(selectedHistoryCustomer.latestStatus)}`}>
+                      {selectedHistoryCustomer.latestStatus}
+                    </span>
+                  )}
+                  <button
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#64748B] transition hover:bg-[#E2E8F0] hover:text-[#0F172A]"
+                    onClick={handleClearFilters}
+                    title="Bỏ chọn khách hàng"
+                    type="button"
+                  >
+                    <X aria-hidden="true" size={15} />
+                  </button>
+                </div>
               </div>
             ) : null}
 
@@ -2373,7 +2413,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               <div className="flex flex-wrap gap-2">
                 <select
                   aria-label="Trạng thái"
-                  className="h-10 flex-1 rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
+                  className="h-10 flex-1 min-w-[130px] rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
                   value={filters.status}
                   onChange={(event) => {
                     const next = { ...filters, status: event.target.value };
@@ -2389,32 +2429,21 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     </option>
                   ))}
                 </select>
-                {isAdmin ? (
-                  <input
-                    aria-label="Ngày gửi"
-                    className="h-10 flex-1 rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
-                    type="date"
-                    value={filters.date}
-                    onChange={(event) => {
-                      const next = { ...filters, date: event.target.value };
-                      setFilters(next);
-                      setAppliedFilters(next);
-                      if (event.target.value) {
-                        setAdminDashboardDate(event.target.value);
-                      }
-                      void loadDeposits(next, 1);
-                    }}
-                  />
-                ) : null}
-                {!selectedHistoryCustomer ? (
-                  <button
-                    className="h-10 rounded-md border border-[#CBD5E1] bg-white px-3 text-sm font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
-                    onClick={handleClearFilters}
-                    type="button"
-                  >
-                    Xóa lọc
-                  </button>
-                ) : null}
+                <input
+                  aria-label="Ngày gửi"
+                  className="h-10 flex-1 min-w-[130px] rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
+                  type="date"
+                  value={filters.date}
+                  onChange={(event) => {
+                    const next = { ...filters, date: event.target.value };
+                    setFilters(next);
+                    setAppliedFilters(next);
+                    if (event.target.value && isAdmin) {
+                      setAdminDashboardDate(event.target.value);
+                    }
+                    void loadDeposits(next, 1);
+                  }}
+                />
               </div>
             </form>
           </section>
