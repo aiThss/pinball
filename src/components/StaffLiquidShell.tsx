@@ -9,6 +9,7 @@ import {
   Download,
   LogOut,
   Moon,
+  RefreshCw,
   Sun,
   Ticket,
 } from "lucide-react";
@@ -82,6 +83,8 @@ export default function StaffLiquidShell({
   const router = useRouter();
   const [theme, setTheme] = useState<StaffTheme>("light");
   const [quickActionsMount, setQuickActionsMount] = useState<HTMLElement | null>(null);
+  const [syncTotalsMount, setSyncTotalsMount] = useState<HTMLElement | null>(null);
+  const [syncingTotals, setSyncingTotals] = useState(false);
   const [showGateFooter, setShowGateFooter] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -120,6 +123,40 @@ export default function StaffLiquidShell({
     return () => {
       observer.disconnect();
       mount?.remove();
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "staff") {
+      setSyncTotalsMount(null);
+      return;
+    }
+
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    let mount: HTMLDivElement | null = null;
+    const ensureMount = () => {
+      const refreshButton = Array.from(shell.querySelectorAll<HTMLButtonElement>("button[title]"))
+        .find((button) => button.title === "Làm mới lịch sử bản ghi ngay");
+
+      if (!refreshButton) return;
+      if (mount?.isConnected && mount.previousElementSibling === refreshButton) return;
+
+      mount?.remove();
+      mount = document.createElement("div");
+      mount.className = "flex shrink-0";
+      refreshButton.parentElement?.appendChild(mount);
+      setSyncTotalsMount(mount);
+    };
+
+    ensureMount();
+    const observer = new MutationObserver(ensureMount);
+    observer.observe(shell, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      mount?.remove();
+      setSyncTotalsMount(null);
     };
   }, [mode]);
 
@@ -172,6 +209,31 @@ export default function StaffLiquidShell({
     }
   }
 
+  async function handleStaffSyncTotals() {
+    if (syncingTotals) return;
+
+    if (!window.confirm("Bạn có chắc chắn muốn tính toán và đồng bộ lại toàn bộ chuỗi số dư cho tất cả khách hàng trong hệ thống?")) {
+      return;
+    }
+
+    setSyncingTotals(true);
+
+    try {
+      const response = await fetch("/api/deposits/recalculate", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message ?? "Đồng bộ số dư thất bại.");
+      }
+
+      window.alert(`Đã tính toán và đồng bộ lại chuỗi số dư cho ${data.customersRecalculated ?? 0} khách hàng.`);
+      window.location.reload();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Đồng bộ số dư thất bại.");
+      setSyncingTotals(false);
+    }
+  }
+
   const quickActions = quickActionsMount
     ? createPortal(
         <nav
@@ -213,6 +275,22 @@ export default function StaffLiquidShell({
       )
     : null;
 
+  const syncTotalsButton = syncTotalsMount
+    ? createPortal(
+        <button
+          type="button"
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#2563EB] bg-[#2563EB] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1D4ED8] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={syncingTotals}
+          onClick={() => void handleStaffSyncTotals()}
+          title="Đồng bộ toàn bộ chuỗi số dư"
+        >
+          <RefreshCw className={syncingTotals ? "animate-spin" : ""} aria-hidden="true" size={13} />
+          <span>{syncingTotals ? "Đang đồng bộ..." : "Đồng bộ"}</span>
+        </button>,
+        syncTotalsMount,
+      )
+    : null;
+
   return (
     <div
       ref={shellRef}
@@ -223,6 +301,7 @@ export default function StaffLiquidShell({
     >
       <div className={styles.backdrop} aria-hidden="true" />
       {quickActions}
+      {syncTotalsButton}
       <div className={styles.content}>{children}</div>
       <footer
         className={`${paginationStyles.siteFooter} ${
