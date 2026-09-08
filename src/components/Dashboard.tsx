@@ -889,20 +889,25 @@ export default function Dashboard({ mode }: { mode: Mode }) {
 
     setRecalculatingTotals(true);
     try {
-      const res = await apiRequest<{ ok: boolean; customersRecalculated: number }>("/api/admin/system", {
+      const endpoint = isAdmin ? "/api/admin/system" : "/api/deposits/recalculate";
+      const res = await apiRequest<{ ok: boolean; customersRecalculated: number }>(endpoint, {
         method: "POST",
       });
       showNotice(
         "success",
-        `Đã tính toán và đồng bộ lại chuỗi số dư cho ${res.customersRecalculated} khách hàng.`,
+        `Đã tính toán và đồng bộ lại chuỗi số dư cho ${res.customersRecalculated ?? 0} khách hàng.`,
       );
-      await Promise.all([refreshData(), loadAdminSystem()]);
+      if (isAdmin) {
+        await Promise.all([refreshData(), loadAdminSystem()]);
+      } else {
+        await refreshData();
+      }
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Đồng bộ số dư thất bại.");
     } finally {
       setRecalculatingTotals(false);
     }
-  }, [loadAdminSystem, refreshData, showNotice]);
+  }, [isAdmin, loadAdminSystem, refreshData, showNotice]);
 
   const fetchAllDeposits = useCallback(async (filterValues: DepositFilters) => {
     const allDeposits: Deposit[] = [];
@@ -2274,8 +2279,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
-            <div className="mb-3.5 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 shrink-0">
+            {/* Header: Tiêu đề bên trái, Xóa lọc bên phải */}
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-[#0F172A]">Lịch sử bản ghi</h2>
                 {isRefreshing ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-2 py-0.5 text-xs font-medium text-[#2563EB]">
@@ -2285,27 +2291,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-full">
-                {/* Nút 1: Xóa lọc */}
-                <button
-                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-2.5 sm:px-3 text-xs font-semibold shadow-xs transition active:scale-95 ${
-                    hasActiveFilters
-                      ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 cursor-pointer"
-                      : "border-slate-200 bg-slate-50 text-slate-400 opacity-50 cursor-not-allowed"
-                  }`}
-                  disabled={!hasActiveFilters || isRefreshing}
-                  onClick={handleClearFilters}
-                  title={hasActiveFilters ? "Xóa các bộ lọc đang chọn" : "Chưa có bộ lọc nào"}
-                  type="button"
-                >
-                  <RotateCcw aria-hidden="true" size={12} />
-                  <span>Xóa lọc</span>
-                </button>
-
-                {/* Nút 2: Tự động (chỉ dành cho Admin) */}
+              <div className="flex items-center gap-1.5">
                 {isAdmin ? (
                   <button
-                    className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-2.5 sm:px-3 text-xs font-semibold shadow-xs transition active:scale-95 ${
+                    className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold shadow-xs transition active:scale-95 ${
                       autoRefreshEnabled
                         ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -2330,21 +2319,95 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   </button>
                 ) : null}
 
-                {/* Nút 3: Làm mới */}
+                {/* Nút Xóa lọc - vị trí trên cùng bên phải theo thiết kế */}
                 <button
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-900 bg-slate-900 px-2.5 sm:px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-slate-800 active:scale-95 disabled:opacity-50"
-                  disabled={isRefreshing}
-                  onClick={() => void refreshData({ silent: false })}
-                  title="Làm mới lịch sử bản ghi ngay"
+                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md border px-3 text-xs font-semibold shadow-xs transition active:scale-95 ${
+                    hasActiveFilters
+                      ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 cursor-pointer"
+                      : "border-[#CBD5E1] bg-[#F8FAFC] text-[#94A3B8] opacity-60 cursor-not-allowed"
+                  }`}
+                  disabled={!hasActiveFilters || isRefreshing}
+                  onClick={handleClearFilters}
+                  title={hasActiveFilters ? "Xóa các bộ lọc đang chọn" : "Chưa có bộ lọc nào"}
                   type="button"
                 >
-                  <RefreshCw
-                    className={`shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
-                    aria-hidden="true"
-                    size={12}
-                  />
-                  <span>{isRefreshing ? "Đang tải" : "Làm mới"}</span>
+                  <RotateCcw aria-hidden="true" size={12} />
+                  <span>Xóa lọc</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Hàng 3 ô: Làm mới | Đồng bộ | Lịch */}
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              {/* Ô 1: Làm mới */}
+              <button
+                className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-[#CBD5E1] bg-white px-2 text-xs font-semibold text-[#0F172A] shadow-xs transition hover:bg-[#F8FAFC] active:scale-95 disabled:opacity-50"
+                disabled={isRefreshing}
+                onClick={() => void refreshData({ silent: false })}
+                title="Làm mới lịch sử bản ghi ngay"
+                type="button"
+              >
+                <RefreshCw
+                  className={`shrink-0 ${isRefreshing ? "animate-spin text-[#2563EB]" : "text-[#64748B]"}`}
+                  aria-hidden="true"
+                  size={14}
+                />
+                <span className="truncate">{isRefreshing ? "Đang tải" : "Làm mới"}</span>
+              </button>
+
+              {/* Ô 2: Đồng bộ */}
+              <button
+                className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-blue-600 bg-blue-600 px-2 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={recalculatingTotals}
+                onClick={() => void handleRecalculateAllTotals()}
+                title="Đồng bộ toàn bộ chuỗi số dư khách hàng"
+                type="button"
+              >
+                <RefreshCw
+                  className={`shrink-0 ${recalculatingTotals ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                  size={14}
+                />
+                <span className="truncate">{recalculatingTotals ? "Đang xử lý..." : "Đồng bộ"}</span>
+              </button>
+
+              {/* Ô 3: Lịch (Date filter) */}
+              <div className="relative flex h-10 w-full items-center justify-center" title="Lọc theo ngày gửi">
+                <input
+                  aria-label="Lọc theo ngày"
+                  className={`h-10 w-full rounded-md border px-2 text-xs font-semibold outline-none transition shadow-xs cursor-pointer text-center ${
+                    filters.date
+                      ? "border-blue-400 bg-blue-50/80 text-blue-800 font-bold focus:border-blue-600 pr-6"
+                      : "border-[#CBD5E1] bg-white text-[#334155] hover:border-[#94A3B8] focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
+                  }`}
+                  type="date"
+                  value={filters.date}
+                  onChange={(event) => {
+                    const next = { ...filters, date: event.target.value };
+                    setFilters(next);
+                    setAppliedFilters(next);
+                    if (event.target.value && isAdmin) {
+                      setAdminDashboardDate(event.target.value);
+                    }
+                    void loadDeposits(next, 1);
+                  }}
+                />
+                {filters.date ? (
+                  <button
+                    type="button"
+                    className="absolute right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-blue-600 hover:bg-blue-200/60 transition"
+                    onClick={() => {
+                      const next = { ...filters, date: "" };
+                      setFilters(next);
+                      setAppliedFilters(next);
+                      if (isAdmin) setAdminDashboardDate("");
+                      void loadDeposits(next, 1);
+                    }}
+                    title="Xóa ngày lọc"
+                  >
+                    <X aria-hidden="true" size={12} />
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -2409,11 +2472,11 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                 </div>
               ) : null}
 
-              {/* Compact status + date row */}
-              <div className="flex flex-wrap gap-2">
+              {/* Compact status row */}
+              <div className="flex">
                 <select
                   aria-label="Trạng thái"
-                  className="h-10 flex-1 min-w-[130px] rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
+                  className="h-11 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
                   value={filters.status}
                   onChange={(event) => {
                     const next = { ...filters, status: event.target.value };
@@ -2429,21 +2492,6 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     </option>
                   ))}
                 </select>
-                <input
-                  aria-label="Ngày gửi"
-                  className="h-10 flex-1 min-w-[130px] rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] outline-none transition focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
-                  type="date"
-                  value={filters.date}
-                  onChange={(event) => {
-                    const next = { ...filters, date: event.target.value };
-                    setFilters(next);
-                    setAppliedFilters(next);
-                    if (event.target.value && isAdmin) {
-                      setAdminDashboardDate(event.target.value);
-                    }
-                    void loadDeposits(next, 1);
-                  }}
-                />
               </div>
             </form>
           </section>

@@ -9,10 +9,8 @@ import {
   Download,
   LogOut,
   Moon,
-  RefreshCw,
   Sun,
   Ticket,
-  X,
 } from "lucide-react";
 import styles from "./StaffLiquidShell.module.css";
 import roundedStyles from "./StaffRoundedCards.module.css";
@@ -76,10 +74,6 @@ export default function StaffLiquidShell({
   const router = useRouter();
   const [theme, setTheme] = useState<StaffTheme>("light");
   const [quickActionsMount, setQuickActionsMount] = useState<HTMLElement | null>(null);
-  const [syncTotalsMount, setSyncTotalsMount] = useState<HTMLElement | null>(null);
-  const [syncingTotals, setSyncingTotals] = useState(false);
-  const [historyDate, setHistoryDate] = useState("");
-  const historyDateRef = useRef("");
   const [showGateFooter, setShowGateFooter] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -122,91 +116,6 @@ export default function StaffLiquidShell({
     };
   }, [mode]);
 
-  useEffect(() => {
-    if (mode !== "staff") return;
-
-    const shell = shellRef.current;
-    if (!shell) return;
-
-    let mount: HTMLDivElement | null = null;
-    const ensureMount = () => {
-      const buttons = Array.from(shell.querySelectorAll<HTMLButtonElement>("button"));
-      const autoButton = buttons.find((button) => {
-        const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
-        return text === "Tự động";
-      });
-      if (autoButton) autoButton.style.display = "none";
-
-      const refreshButton = buttons.find((button) => {
-        const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
-        return text.includes("Làm mới") && !text.includes("Đồng bộ");
-      });
-
-      if (!refreshButton || !refreshButton.parentElement) return;
-
-      const clearButton = buttons.find((button) => {
-        const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
-        return text.includes("Xóa lọc");
-      });
-      if (clearButton && !clearButton.dataset.clearedBound) {
-        clearButton.dataset.clearedBound = "true";
-        clearButton.addEventListener("click", () => {
-          handleHistoryDateChange("");
-        });
-      }
-
-      if (mount?.isConnected && mount.previousElementSibling === refreshButton) return;
-
-      mount?.remove();
-      mount = document.createElement("div");
-      mount.className = "contents";
-      refreshButton.parentElement.insertBefore(mount, refreshButton.nextSibling);
-      setSyncTotalsMount(mount);
-    };
-
-    ensureMount();
-    const observer = new MutationObserver(ensureMount);
-    observer.observe(shell, { childList: true, subtree: true });
-
-    return () => {
-      observer.disconnect();
-      mount?.remove();
-      setSyncTotalsMount(null);
-    };
-  }, [mode]);
-
-  useEffect(() => {
-    if (mode !== "staff") return;
-
-    const originalFetch = window.fetch;
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const url = new URL(requestUrl, window.location.origin);
-      const isDepositListRequest = url.origin === window.location.origin && url.pathname === "/api/deposits";
-
-      if (isDepositListRequest) {
-        const date = historyDateRef.current;
-        if (date) {
-          url.searchParams.set("date", date);
-        } else {
-          url.searchParams.delete("date");
-        }
-
-        if (typeof input === "string" || input instanceof URL) {
-          return originalFetch(url.toString(), init);
-        }
-
-        const request = new Request(url.toString(), input);
-        return originalFetch(request, init);
-      }
-
-      return originalFetch(input, init);
-    };
-
-    return () => {
-      window.fetch = originalFetch;
-    };
-  }, [mode]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -255,40 +164,7 @@ export default function StaffLiquidShell({
     }
   }
 
-  function handleHistoryDateChange(value: string) {
-    historyDateRef.current = value;
-    setHistoryDate(value);
 
-    const refreshButton = Array.from(shellRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? []).find((button) => {
-      const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
-      return text.includes("Làm mới") && !text.includes("Đồng bộ");
-    });
-
-    refreshButton?.click();
-  }
-
-  async function handleStaffSyncTotals() {
-    if (syncingTotals) return;
-
-    if (!window.confirm("Bạn có chắc chắn muốn tính toán và đồng bộ lại toàn bộ chuỗi số dư cho tất cả khách hàng trong hệ thống?")) {
-      return;
-    }
-
-    setSyncingTotals(true);
-
-    try {
-      const response = await fetch("/api/deposits/recalculate", { method: "POST" });
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) throw new Error(data.message ?? "Đồng bộ số dư thất bại.");
-
-      window.alert(`Đã tính toán và đồng bộ lại chuỗi số dư cho ${data.customersRecalculated ?? 0} khách hàng.`);
-      window.location.reload();
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Đồng bộ số dư thất bại.");
-      setSyncingTotals(false);
-    }
-  }
 
   const quickActions = quickActionsMount
     ? createPortal(
@@ -331,48 +207,6 @@ export default function StaffLiquidShell({
       )
     : null;
 
-  const syncTotalsButton = syncTotalsMount
-    ? createPortal(
-        <>
-          <button
-            type="button"
-            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-blue-600 bg-blue-600 px-2.5 sm:px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={syncingTotals}
-            onClick={() => void handleStaffSyncTotals()}
-            title="Đồng bộ toàn bộ chuỗi số dư"
-          >
-            <RefreshCw className={`shrink-0 ${syncingTotals ? "animate-spin" : ""}`} aria-hidden="true" size={12} />
-            <span>{syncingTotals ? "Đang đồng bộ..." : "Đồng bộ"}</span>
-          </button>
-          <div className="relative flex h-8 shrink-0 items-center" title="Lọc lịch sử theo ngày gửi bản ghi">
-            <span className="sr-only">Ngày gửi</span>
-            <input
-              aria-label="Ngày gửi"
-              className={`h-8 rounded-full border text-xs font-semibold outline-none transition shadow-xs ${
-                historyDate
-                  ? "w-[125px] sm:w-[135px] border-blue-300 bg-blue-50/70 pl-2.5 pr-6 text-blue-800 font-bold focus:border-blue-600"
-                  : "w-[105px] sm:w-[125px] border-[#CBD5E1] bg-white px-2.5 text-[#334155] hover:border-[#94A3B8] focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10"
-              }`}
-              type="date"
-              value={historyDate}
-              onChange={(event) => handleHistoryDateChange(event.target.value)}
-            />
-            {historyDate ? (
-              <button
-                type="button"
-                className="absolute right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-blue-600 hover:bg-blue-200/60 transition"
-                onClick={() => handleHistoryDateChange("")}
-                title="Xóa ngày lọc"
-              >
-                <X aria-hidden="true" size={10} />
-              </button>
-            ) : null}
-          </div>
-        </>,
-        syncTotalsMount,
-      )
-    : null;
-
   return (
     <div
       ref={shellRef}
@@ -383,7 +217,6 @@ export default function StaffLiquidShell({
     >
       <div className={styles.backdrop} aria-hidden="true" />
       {quickActions}
-      {syncTotalsButton}
       <div className={styles.content}>{children}</div>
       <footer
         className={`${paginationStyles.siteFooter} ${
