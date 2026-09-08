@@ -171,9 +171,10 @@ export default function StaffLiquidShell({
     const originalFetch = window.fetch;
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const url = new URL(requestUrl, window.location.origin);
+      const isDepositListRequest = url.origin === window.location.origin && url.pathname === "/api/deposits";
 
-      if (requestUrl.startsWith("/api/deposits") || requestUrl.startsWith(window.location.origin + "/api/deposits")) {
-        const url = new URL(requestUrl, window.location.origin);
+      if (isDepositListRequest) {
         const date = historyDateRef.current;
         if (date) {
           url.searchParams.set("date", date);
