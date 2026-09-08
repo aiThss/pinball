@@ -77,6 +77,8 @@ export default function StaffLiquidShell({
   const [quickActionsMount, setQuickActionsMount] = useState<HTMLElement | null>(null);
   const [syncTotalsMount, setSyncTotalsMount] = useState<HTMLElement | null>(null);
   const [syncingTotals, setSyncingTotals] = useState(false);
+  const [historyDate, setHistoryDate] = useState("");
+  const historyDateRef = useRef("");
   const [showGateFooter, setShowGateFooter] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -147,7 +149,7 @@ export default function StaffLiquidShell({
 
       mount?.remove();
       mount = document.createElement("div");
-      mount.className = "flex shrink-0 items-center";
+      mount.className = "flex shrink-0 items-center gap-2";
       refreshButton.parentElement.insertBefore(mount, refreshButton.nextSibling);
       setSyncTotalsMount(mount);
     };
@@ -160,6 +162,38 @@ export default function StaffLiquidShell({
       observer.disconnect();
       mount?.remove();
       setSyncTotalsMount(null);
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "staff") return;
+
+    const originalFetch = window.fetch;
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+
+      if (requestUrl.startsWith("/api/deposits") || requestUrl.startsWith(window.location.origin + "/api/deposits")) {
+        const url = new URL(requestUrl, window.location.origin);
+        const date = historyDateRef.current;
+        if (date) {
+          url.searchParams.set("date", date);
+        } else {
+          url.searchParams.delete("date");
+        }
+
+        if (typeof input === "string" || input instanceof URL) {
+          return originalFetch(url.toString(), init);
+        }
+
+        const request = new Request(url.toString(), input);
+        return originalFetch(request, init);
+      }
+
+      return originalFetch(input, init);
+    };
+
+    return () => {
+      window.fetch = originalFetch;
     };
   }, [mode]);
 
@@ -208,6 +242,18 @@ export default function StaffLiquidShell({
     } catch {
       // Keep the current session intact if the network request cannot complete.
     }
+  }
+
+  function handleHistoryDateChange(value: string) {
+    historyDateRef.current = value;
+    setHistoryDate(value);
+
+    const refreshButton = Array.from(shellRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? []).find((button) => {
+      const text = button.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      return text.includes("Làm mới") && !text.includes("Đồng bộ");
+    });
+
+    refreshButton?.click();
   }
 
   async function handleStaffSyncTotals() {
@@ -276,16 +322,28 @@ export default function StaffLiquidShell({
 
   const syncTotalsButton = syncTotalsMount
     ? createPortal(
-        <button
-          type="button"
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#2563EB] bg-[#2563EB] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1D4ED8] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={syncingTotals}
-          onClick={() => void handleStaffSyncTotals()}
-          title="Đồng bộ toàn bộ chuỗi số dư"
-        >
-          <RefreshCw className={syncingTotals ? "animate-spin" : ""} aria-hidden="true" size={13} />
-          <span>{syncingTotals ? "Đang đồng bộ..." : "Đồng bộ"}</span>
-        </button>,
+        <>
+          <button
+            type="button"
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#2563EB] bg-[#2563EB] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1D4ED8] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={syncingTotals}
+            onClick={() => void handleStaffSyncTotals()}
+            title="Đồng bộ toàn bộ chuỗi số dư"
+          >
+            <RefreshCw className={syncingTotals ? "animate-spin" : ""} aria-hidden="true" size={13} />
+            <span>{syncingTotals ? "Đang đồng bộ..." : "Đồng bộ"}</span>
+          </button>
+          <label className="relative flex h-8 shrink-0 items-center" title="Lọc lịch sử theo ngày gửi bản ghi">
+            <span className="sr-only">Ngày gửi</span>
+            <input
+              aria-label="Ngày gửi"
+              className="h-8 w-[140px] rounded-full border border-[#CBD5E1] bg-white px-3 text-xs font-semibold text-[#334155] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10"
+              type="date"
+              value={historyDate}
+              onChange={(event) => handleHistoryDateChange(event.target.value)}
+            />
+          </label>
+        </>,
         syncTotalsMount,
       )
     : null;
