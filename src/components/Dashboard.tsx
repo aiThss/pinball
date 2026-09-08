@@ -2372,16 +2372,38 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </button>
 
               {/* Ô 3: Lịch (Date filter) */}
-              <div className="relative flex h-10 w-full items-center justify-center" title="Lọc theo ngày gửi">
+              <div
+                className={`relative flex h-10 w-full items-center justify-center rounded-md border text-xs font-semibold shadow-xs transition ${
+                  filters.date
+                    ? "border-blue-400 bg-blue-50 text-blue-700"
+                    : "border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-[#F8FAFC]"
+                }`}
+                title={filters.date ? `Đang lọc ngày: ${formatDate(filters.date)}` : "Lọc theo ngày gửi"}
+              >
+                {/* Lớp hiển thị trực quan: Icon + Chữ "Lịch" (hoặc Ngày đã chọn) */}
+                <div className="pointer-events-none flex items-center justify-center gap-1.5 px-2">
+                  <CalendarDays
+                    className={`shrink-0 ${filters.date ? "text-blue-600" : "text-[#64748B]"}`}
+                    size={14}
+                  />
+                  <span className="truncate">
+                    {filters.date ? formatDate(filters.date) : "Lịch"}
+                  </span>
+                </div>
+
+                {/* Input chọn ngày phủ toàn bộ ô, kích hoạt picker khi click */}
                 <input
                   aria-label="Lọc theo ngày"
-                  className={`h-10 w-full rounded-md border px-2 text-xs font-semibold outline-none transition shadow-xs cursor-pointer text-center ${
-                    filters.date
-                      ? "border-blue-400 bg-blue-50/80 text-blue-800 font-bold focus:border-blue-600 pr-6"
-                      : "border-[#CBD5E1] bg-white text-[#334155] hover:border-[#94A3B8] focus:border-[#111827] focus:ring-2 focus:ring-[#111827]/10"
-                  }`}
+                  className="absolute inset-0 z-0 h-full w-full cursor-pointer opacity-0"
                   type="date"
                   value={filters.date}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch {
+                      // Fallback tự nhiên của trình duyệt
+                    }
+                  }}
                   onChange={(event) => {
                     const next = { ...filters, date: event.target.value };
                     setFilters(next);
@@ -2392,11 +2414,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     void loadDeposits(next, 1);
                   }}
                 />
+
+                {/* Nút xóa ngày lọc [X] */}
                 {filters.date ? (
                   <button
                     type="button"
-                    className="absolute right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-blue-600 hover:bg-blue-200/60 transition"
-                    onClick={() => {
+                    className="absolute right-1 z-10 flex h-6 w-6 items-center justify-center rounded-full text-blue-600 hover:bg-blue-200/70 transition cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       const next = { ...filters, date: "" };
                       setFilters(next);
                       setAppliedFilters(next);
@@ -2405,7 +2430,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     }}
                     title="Xóa ngày lọc"
                   >
-                    <X aria-hidden="true" size={12} />
+                    <X aria-hidden="true" size={13} />
                   </button>
                 ) : null}
               </div>

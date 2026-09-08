@@ -136,8 +136,15 @@
   background: rgba(30, 41, 59, 0.95) !important;
 }
 
-.darkContrastShell[data-staff-theme="dark"] :global(input[class*="bg-blue-50"]) {
+.darkContrastShell[data-staff-theme="dark"] :global([class*="bg-blue-50"]) {
   color: #93c5fd !important;
   background: rgba(30, 58, 138, 0.45) !important;
   border-color: rgba(96, 165, 250, 0.5) !important;
+}
+
+.darkContrastShell[data-staff-theme="dark"] :global(input[type="date"].opacity-0) {
+  opacity: 0 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
