@@ -864,7 +864,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const refreshData = useCallback(
     async (options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
-      setIsRefreshing(true);
+      if (!silent) {
+        setIsRefreshing(true);
+      }
 
       try {
         const currentCount = Math.max(
@@ -879,7 +881,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
           isAdmin ? loadAdminDashboard(adminDashboardDate, silent) : Promise.resolve(),
         ]);
       } finally {
-        setIsRefreshing(false);
+        if (!silent) {
+          setIsRefreshing(false);
+        }
       }
     },
     [adminDashboardDate, appliedFilters, isAdmin, loadAdminDashboard, loadDeposits, loadSummary],
@@ -888,7 +892,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const handleRecalculateAllTotals = useCallback(async () => {
     if (
       !window.confirm(
-        "Bạn có chắc chắn muốn tính toán và đồng bộ lại toàn bộ chuỗi số dư cho tất cả khách hàng trong hệ thống?",
+        "Bạn có chắc chắn muốn tính toán lại dữ liệu cho toàn bộ khách hàng không? Hệ thống sẽ rà soát và chuẩn hóa lại số thẻ/bi của tất cả khách từ trước đến nay.",
       )
     ) {
       return;
@@ -902,7 +906,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       });
       showNotice(
         "success",
-        `Đã tính toán và đồng bộ lại chuỗi số dư cho ${res.customersRecalculated ?? 0} khách hàng.`,
+        `Đã tính toán lại dữ liệu cho ${res.customersRecalculated ?? 0} khách hàng thành công.`,
       );
       if (isAdmin) {
         await Promise.all([refreshData(), loadAdminSystem()]);
@@ -910,7 +914,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
         await refreshData();
       }
     } catch (error) {
-      showNotice("error", error instanceof Error ? error.message : "Đồng bộ số dư thất bại.");
+      showNotice("error", error instanceof Error ? error.message : "Tính toán lại dữ liệu thất bại.");
     } finally {
       setRecalculatingTotals(false);
     }
@@ -992,14 +996,23 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       return;
     }
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshData({ silent: true });
+      }
+    };
+
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "visible") {
         void refreshData({ silent: true });
       }
-    }, 20000);
+    }, 8000);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [autoRefreshEnabled, refreshData, staffName]);
 
@@ -1702,7 +1715,7 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                       type="button"
                     >
                       <RefreshCw className={recalculatingTotals ? "animate-spin" : ""} aria-hidden="true" size={15} />
-                      {recalculatingTotals ? "Đang đồng bộ..." : "Đồng bộ chuỗi số dư"}
+                      {recalculatingTotals ? "Đang đồng bộ..." : "Đồng bộ dữ liệu"}
                     </button>
                     <button
                       className={`${secondaryButton} h-10 px-3 text-xs`}
@@ -2309,8 +2322,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                     onClick={() => setAutoRefreshEnabled((prev) => !prev)}
                     title={
                       autoRefreshEnabled
-                        ? "Tắt tự động làm mới (mỗi 10s)"
-                        : "Bật tự động làm mới (mỗi 10s)"
+                        ? "Tắt tự động làm mới (mỗi 8s)"
+                        : "Bật tự động làm mới (mỗi 8s)"
                     }
                     type="button"
                   >
@@ -2344,30 +2357,14 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </div>
             </div>
 
-            {/* Hàng 3 ô: Làm mới | Đồng bộ | Lịch */}
-            <div className="mb-3 grid grid-cols-3 gap-2">
-              {/* Ô 1: Làm mới */}
-              <button
-                className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-[#CBD5E1] bg-white px-2 text-xs font-semibold text-[#0F172A] shadow-xs transition hover:bg-[#F8FAFC] active:scale-95 disabled:opacity-50"
-                disabled={isRefreshing}
-                onClick={() => void refreshData({ silent: false })}
-                title="Làm mới lịch sử bản ghi ngay"
-                type="button"
-              >
-                <RefreshCw
-                  className={`shrink-0 ${isRefreshing ? "animate-spin text-[#2563EB]" : "text-[#64748B]"}`}
-                  aria-hidden="true"
-                  size={14}
-                />
-                <span className="truncate">{isRefreshing ? "Đang tải" : "Làm mới"}</span>
-              </button>
-
-              {/* Ô 2: Đồng bộ */}
+            {/* Hàng 2 ô: Đồng bộ dữ liệu | Lịch */}
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              {/* Ô 1: Đồng bộ dữ liệu */}
               <button
                 className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-blue-600 bg-blue-600 px-2 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={recalculatingTotals}
                 onClick={() => void handleRecalculateAllTotals()}
-                title="Đồng bộ toàn bộ chuỗi số dư khách hàng"
+                title="Tính toán và đồng bộ lại dữ liệu cho toàn bộ khách hàng"
                 type="button"
               >
                 <RefreshCw
@@ -2375,10 +2372,10 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   aria-hidden="true"
                   size={14}
                 />
-                <span className="truncate">{recalculatingTotals ? "Đang xử lý..." : "Đồng bộ"}</span>
+                <span className="truncate">{recalculatingTotals ? "Đang xử lý..." : "Đồng bộ dữ liệu"}</span>
               </button>
 
-              {/* Ô 3: Lịch (Date filter) */}
+              {/* Ô 2: Lịch (Date filter) */}
               <div
                 className={`relative flex h-10 w-full items-center justify-center rounded-md border text-xs font-semibold shadow-xs transition ${
                   filters.date
