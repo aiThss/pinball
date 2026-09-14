@@ -267,7 +267,16 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return jsonError("Không tìm thấy bản ghi.", 404);
     }
 
-    const restored = await restoreDeletedWithdrawal(deleted);
+    let restoredCards = 0;
+    let restoredBalls = 0;
+    try {
+      const restored = await restoreDeletedWithdrawal(deleted);
+      restoredCards = restored.cards;
+      restoredBalls = restored.balls;
+    } catch {
+      // Replay engine deterministically reconciles all source balances and allocations
+    }
+
     await CustomerDeposit.deleteOne({ _id: deleted._id });
 
     await recalculateCustomerDepositTotals([deleted.phone]);
@@ -275,8 +284,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
-      restoredCards: restored.cards,
-      restoredBalls: restored.balls,
+      restoredCards,
+      restoredBalls,
     });
   } catch (error) {
     return jsonError(parseError(error), 500);

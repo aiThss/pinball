@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
       { $sort: { activeDeposits: -1, latestDepositDate: -1, fullName: 1 } },
       { $limit: suggestionLimit },
     ]);
-    const match = suggestions.find((suggestion) => suggestion.phone === phone && suggestion.activeDeposits > 0);
+    const match = suggestions.find((suggestion) => suggestion.phone === phone);
 
     return NextResponse.json({
       found: Boolean(match),

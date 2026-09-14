@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { jsonError, parseError } from "@/lib/api";
-import { rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { rebuildCustomerDailyTotalsForDates, recalculateCustomerDepositTotals } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { verifyTelegramBotBearer } from "@/lib/telegram";
 import { CustomerDeposit, type ICustomerDeposit, type IHistorySnapshot } from "@/models/CustomerDeposit";
@@ -93,6 +93,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     deposit.history.splice(historyIndex, 1);
 
     await deposit.save();
+    await recalculateCustomerDepositTotals([historyEntry.before.phone, deposit.phone]);
     await rebuildCustomerDailyTotalsForDates([currentDepositDate, deposit.depositDate]);
 
     return NextResponse.json({

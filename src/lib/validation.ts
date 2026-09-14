@@ -35,7 +35,13 @@ const nonNegativeIntegerSchema = z.coerce
   .max(999_999, "Số quá lớn.");
 
 export function normalizePhone(phone: string) {
-  return phone.trim().replace(/[\s().-]/g, "");
+  let cleaned = phone.trim().replace(/[\s().-]/g, "");
+  if (cleaned.startsWith("+84")) {
+    cleaned = "0" + cleaned.slice(3);
+  } else if (cleaned.startsWith("84") && cleaned.length > 9) {
+    cleaned = "0" + cleaned.slice(2);
+  }
+  return cleaned;
 }
 
 export const phoneSchema = z
@@ -43,7 +49,7 @@ export const phoneSchema = z
   .min(8, "Số điện thoại quá ngắn.")
   .transform(normalizePhone)
   .refine(
-    (value) => /^(0\d{8,10}|\+84\d{8,10})$/.test(value),
+    (value) => /^0\d{8,10}$/.test(value),
     "Số điện thoại chưa đúng định dạng Việt Nam.",
   );
 

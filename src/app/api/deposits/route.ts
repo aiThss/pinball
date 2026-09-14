@@ -232,7 +232,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")?.trim();
     const includeHistory = searchParams.get("includeHistory") === "true";
 
-    if ((depositDate || includeHistory) && !(await verifyAdmin())) {
+    if (includeHistory && !(await verifyAdmin())) {
       return jsonError("Bạn không có quyền xem dữ liệu chi tiết này.", 403);
     }
 
