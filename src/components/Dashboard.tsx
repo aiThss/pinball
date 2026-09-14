@@ -60,6 +60,7 @@ type Deposit = {
   createdByName?: string;
   updatedByName?: string;
   latestUpdate?: HistoryEntry | null;
+  updates?: HistoryEntry[];
   history: HistoryEntry[];
 };
 
@@ -300,26 +301,24 @@ function creatorName(deposit: Deposit) {
   return deposit.createdByName || deposit.createdBy?.displayName || "N/A";
 }
 
-function getLatestUpdateEntry(deposit: Deposit) {
-  if (deposit.latestUpdate?.action === "UPDATE") {
-    return deposit.latestUpdate;
+function getRecordUpdateEntries(deposit: Deposit): HistoryEntry[] {
+  if (Array.isArray(deposit.updates) && deposit.updates.length > 0) {
+    return deposit.updates.filter((u) => u.actorName !== adminDisplayName);
   }
 
-  return [...deposit.history].reverse().find((entry) => entry.action === "UPDATE");
-}
+  const historyUpdates = deposit.history.filter(
+    (entry) => entry.action === "UPDATE" && entry.actorName !== adminDisplayName,
+  );
 
-function getRecordUpdateInfo(deposit: Deposit) {
-  const latestUpdate = getLatestUpdateEntry(deposit);
-
-  if (!latestUpdate) {
-    return null;
+  if (historyUpdates.length > 0) {
+    return historyUpdates;
   }
 
-  return {
-    actorName: latestUpdate.actorName,
-    at: latestUpdate.at,
-    content: latestUpdate.content,
-  };
+  if (deposit.latestUpdate?.action === "UPDATE" && deposit.latestUpdate.actorName !== adminDisplayName) {
+    return [deposit.latestUpdate];
+  }
+
+  return [];
 }
 
 function CompactUpdateInfo({
@@ -331,21 +330,29 @@ function CompactUpdateInfo({
   deposit: Deposit;
   lineClassName: string;
 }) {
-  const updateInfo = getRecordUpdateInfo(deposit);
+  const updates = getRecordUpdateEntries(deposit);
 
-  if (!updateInfo) {
+  if (updates.length === 0) {
     return null;
   }
 
   return (
-    <>
-      <div className={lineClassName}>
-        Cập nhật bởi: {updateInfo.actorName} lúc {formatShortDateTime(updateInfo.at)}
-      </div>
-      {updateInfo.content ? (
-        <div className={changeClassName ?? lineClassName}>Thay đổi: {updateInfo.content}</div>
-      ) : null}
-    </>
+    <div className="mt-1 space-y-1">
+      {updates.map((update, idx) => (
+        <div
+          className="border-t border-[#E2E8F0] pt-0.5 first:border-0 first:pt-0"
+          key={update.id || `${update.at}-${idx}`}
+        >
+          <div className={lineClassName}>
+            Cập nhật bởi: <span className="font-semibold text-[#1E293B]">{update.actorName}</span> lúc{" "}
+            {formatShortDateTime(update.at)}
+          </div>
+          {update.content ? (
+            <div className={changeClassName ?? lineClassName}>Thay đổi: {update.content}</div>
+          ) : null}
+        </div>
+      ))}
+    </div>
   );
 }
 

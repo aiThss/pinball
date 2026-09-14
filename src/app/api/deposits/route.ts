@@ -286,13 +286,30 @@ export async function GET(request: NextRequest) {
               updatedByName: 1,
               createdAt: 1,
               updatedAt: 1,
+              updates: {
+                $filter: {
+                  input: { $ifNull: ["$history", []] },
+                  as: "entry",
+                  cond: {
+                    $and: [
+                      { $eq: ["$$entry.action", "UPDATE"] },
+                      { $ne: ["$$entry.actorName", "Danh Thai"] },
+                    ],
+                  },
+                },
+              },
               latestUpdate: {
                 $arrayElemAt: [
                   {
                     $filter: {
                       input: { $ifNull: ["$history", []] },
                       as: "entry",
-                      cond: { $eq: ["$$entry.action", "UPDATE"] },
+                      cond: {
+                        $and: [
+                          { $eq: ["$$entry.action", "UPDATE"] },
+                          { $ne: ["$$entry.actorName", "Danh Thai"] },
+                        ],
+                      },
                     },
                   },
                   -1,

@@ -62,9 +62,20 @@ function serializeHistoryEntry(item: unknown) {
 export function serializeDeposit(deposit: unknown, overrides: Partial<{ totalText: string }> = {}) {
   const value = toPlainObject(deposit);
   const history = Array.isArray(value.history) ? value.history : [];
+  const rawUpdates = Array.isArray(value.updates)
+    ? value.updates
+    : history.filter(
+        (item) =>
+          (item as Record<string, unknown>).action === "UPDATE" &&
+          (item as Record<string, unknown>).actorName !== "Danh Thai",
+      );
+  const updates = rawUpdates.map(serializeHistoryEntry);
   const latestUpdate =
-    value.latestUpdate ??
-    [...history].reverse().find((item) => (item as Record<string, unknown>).action === "UPDATE");
+    value.latestUpdate
+      ? serializeHistoryEntry(value.latestUpdate)
+      : updates.length > 0
+        ? updates[updates.length - 1]
+        : null;
 
   return {
     id: String(value._id),
@@ -84,7 +95,8 @@ export function serializeDeposit(deposit: unknown, overrides: Partial<{ totalTex
     updatedAt: value.updatedAt instanceof Date ? value.updatedAt.toISOString() : value.updatedAt,
     createdBy: null,
     updatedBy: null,
-    latestUpdate: latestUpdate ? serializeHistoryEntry(latestUpdate) : null,
+    latestUpdate,
+    updates,
     history: history.map(serializeHistoryEntry),
   };
 }

@@ -96,10 +96,10 @@ export async function GET(request: NextRequest) {
         {
           $match: {
             "history.action": "UPDATE",
+            "history.actorName": { $ne: adminDisplayName },
             "history.at": { $gte: start, $lt: end },
           },
         },
-        { $group: { _id: "$_id" } },
       ]),
       CustomerDeposit.aggregate<RecentStaffUpdate>([
         { $unwind: "$history" },
