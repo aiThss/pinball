@@ -30,11 +30,22 @@ export async function connectMongo() {
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(uri, {
-      bufferCommands: false,
-    });
+    cached.promise = mongoose
+      .connect(uri, {
+        bufferCommands: false,
+      })
+      .then((m) => m)
+      .catch((err) => {
+        cached.promise = null;
+        throw err;
+      });
   }
 
-  cached.conn = await cached.promise;
+  try {
+    cached.conn = await cached.promise;
+  } catch (err) {
+    cached.promise = null;
+    throw err;
+  }
   return cached.conn;
 }
