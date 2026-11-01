@@ -52,6 +52,7 @@ export interface ICustomerDeposit extends Document {
   updatedBy?: Types.ObjectId;
   createdByName: string;
   updatedByName: string;
+  idempotencyKey?: string;
   history: IHistoryEntry[];
   createdAt: Date;
   updatedAt: Date;
@@ -230,6 +231,7 @@ const CustomerDepositSchema = new Schema<ICustomerDeposit>(
       default: "Nhân viên",
       trim: true,
     },
+    idempotencyKey: { type: String, required: false },
     history: {
       type: [HistorySchema],
       default: [],
@@ -271,6 +273,11 @@ CustomerDepositSchema.index({ phone: 1, status: 1, createdAt: -1 });
 // Cover the most frequent list views so MongoDB can filter and sort without an in-memory sort.
 CustomerDepositSchema.index({ status: 1, createdAt: -1 });
 CustomerDepositSchema.index({ depositDate: 1, createdAt: -1 });
+// Mỗi Idempotency Key từ client chỉ tạo được đúng một bản ghi, kể cả khi request chạy song song.
+CustomerDepositSchema.index(
+  { idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
+);
 
 export const CustomerDeposit =
   (models.CustomerDeposit as Model<ICustomerDeposit> | undefined) ??

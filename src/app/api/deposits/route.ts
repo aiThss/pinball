@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { Types } from "mongoose";
+import { after, NextRequest, NextResponse } from "next/server";
 import { escapeRegex, jsonError, parseError, serializeDeposit } from "@/lib/api";
 import { verifyAdmin } from "@/lib/auth";
-import { recalculateCustomerDepositTotals, rebuildCustomerDailyTotalsForDates } from "@/lib/daily-deposits";
+import { recalculateCustomerDepositTotals } from "@/lib/daily-deposits";
 import { connectMongo } from "@/lib/mongodb";
 import { buildTotalText, getHanoiNow } from "@/lib/time";
 import { sendPushToAll } from "@/lib/webpush";
@@ -28,6 +29,24 @@ const depositCardAction = cardActions[0];
 const withdrawCardAction = cardActions[1];
 const depositBallAction = ballActions[0];
 const withdrawBallAction = ballActions[1];
+const dedupeWindowMs = 15_000;
+const maxIdempotencyKeyLength = 128;
+
+function parseIdempotencyKey(value: string | null) {
+  const key = value?.trim();
+
+  return key && key.length <= maxIdempotencyKeyLength ? key : undefined;
+}
+
+function isIdempotencyKeyConflict(error: unknown) {
+  const mongoError = error as { code?: unknown; keyPattern?: Record<string, unknown> } | null;
+
+  return mongoError?.code === 11000 && Boolean(mongoError.keyPattern?.idempotencyKey);
+}
+
+function deduplicatedResponse(deposit: unknown) {
+  return NextResponse.json({ deposit: serializeDeposit(deposit), deduplicated: true }, { status: 200 });
+}
 
 function parsePositiveInteger(value: string | null, fallback: number) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -339,6 +358,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const now = getHanoiNow();
+    const idempotencyKey = parseIdempotencyKey(request.headers.get("x-idempotency-key"));
     const rawData =
       body && typeof body === "object" && !Array.isArray(body)
         ? (body as Record<string, unknown>)
@@ -368,6 +388,27 @@ export async function POST(request: NextRequest) {
     }
 
     await connectMongo();
+
+    // Chống tạo trùng: cùng Idempotency Key, hoặc cùng nội dung cốt lõi trong 15 giây gần nhất.
+    // Lọc theo thời điểm sinh _id vì createdAt bị hook đồng bộ theo depositDate/depositTime (chỉ chính xác tới phút).
+    const recentDuplicateFilter = {
+      _id: { $gte: Types.ObjectId.createFromTime(Math.floor((Date.now() - dedupeWindowMs) / 1000)) },
+      phone: data.phone,
+      cardAction: data.cardAction,
+      cards: data.cards,
+      ballAction: data.ballAction,
+      balls: data.balls,
+      createdByName: data.actorName,
+      // Admin có thể nhập liên tiếp các bản ghi giống nhau cho ngày/giờ khác nhau.
+      ...(isAdminCreate ? { depositDate, depositTime } : {}),
+    };
+    const existingDeposit = await CustomerDeposit.findOne(
+      idempotencyKey ? { $or: [{ idempotencyKey }, recentDuplicateFilter] } : recentDuplicateFilter,
+    ).sort({ _id: -1 });
+
+    if (existingDeposit) {
+      return deduplicatedResponse(existingDeposit);
+    }
 
     const activeTotal = await getActiveTotalByPhone(data.phone);
     const isTakingCards = data.cardAction === withdrawCardAction;
@@ -416,6 +457,7 @@ export async function POST(request: NextRequest) {
       status,
       createdByName: data.actorName,
       updatedByName: data.actorName,
+      ...(idempotencyKey ? { idempotencyKey } : {}),
       history: [
         {
           at: new Date(),
@@ -424,7 +466,22 @@ export async function POST(request: NextRequest) {
           content: historyContent,
         },
       ],
+    }).catch((error: unknown) => {
+      // Hai request cùng key chạy song song: unique index chỉ cho một request tạo thành công.
+      if (idempotencyKey && isIdempotencyKeyConflict(error)) {
+        return null;
+      }
+
+      throw error;
     });
+
+    if (!deposit) {
+      const winnerDeposit = await CustomerDeposit.findOne({ idempotencyKey });
+
+      return winnerDeposit
+        ? deduplicatedResponse(winnerDeposit)
+        : jsonError("Bản ghi đang được xử lý, vui lòng tải lại danh sách.", 409);
+    }
 
     if (isTakingCards && data.cards > 0) {
       deposit.withdrawalAllocations?.push(
@@ -442,9 +499,23 @@ export async function POST(request: NextRequest) {
       await deposit.save();
     }
 
-    await rebuildCustomerDailyTotalsForDates([depositDate]);
-    await recalculateCustomerDepositTotals(data.phone);
-    const refreshedDeposit = await CustomerDeposit.findById(deposit._id);
+    // recalculateCustomerDepositTotals đã tự rebuild tổng theo ngày (rebuildCustomerDailyTotalsForDates) ở cuối.
+    if (isAdminCreate) {
+      // Admin có thể chèn bản ghi vào quá khứ, phải phát lại lịch sử SĐT trước khi trả về để số liệu đúng ngay.
+      await recalculateCustomerDepositTotals(data.phone);
+    } else {
+      after(async () => {
+        try {
+          await recalculateCustomerDepositTotals(data.phone);
+        } catch (error) {
+          console.error("Lỗi tính lại tổng ký gửi sau khi tạo bản ghi:", error);
+        }
+      });
+    }
+
+    const responseDeposit = isAdminCreate
+      ? (await CustomerDeposit.findById(deposit._id)) ?? deposit
+      : deposit;
 
     // Build compact push notification body
     const actionParts: string[] = [];
@@ -457,45 +528,50 @@ export async function POST(request: NextRequest) {
     const shortName = data.fullName.split(" ").slice(-2).join(" ");
     const pushBody = `${shortName} · ${actionParts.join(" + ")} · ${data.actorName} lúc ${depositTime}`;
 
-    // Fire-and-forget — không block response
-    void sendPushToAll({
-      title: "Ký gửi PINBALL",
-      body: pushBody,
-      url: "/",
-    });
-
     // Gửi webhook thông báo tới Telegram Bot (nếu có cấu hình)
     const webhookUrl =
       process.env.TELEGRAM_BOT_WEBHOOK_URL ||
       process.env.PINBALL_BOT_WEBHOOK_URL ||
       process.env.BOT_WEBHOOK_URL;
-    if (webhookUrl) {
-      void fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // Trường cũ được giữ để bot vẫn tương thích trong lúc deploy lần lượt.
-          id: deposit._id.toString(),
-          title: `${deposit.fullName} (${deposit.phone})`,
-          type: `${actionParts.join(" + ")} (Bởi ${data.actorName} lúc ${depositTime})`,
+    const webhookBody = JSON.stringify({
+      // Trường cũ được giữ để bot vẫn tương thích trong lúc deploy lần lượt.
+      id: deposit._id.toString(),
+      title: `${deposit.fullName} (${deposit.phone})`,
+      type: `${actionParts.join(" + ")} (Bởi ${data.actorName} lúc ${depositTime})`,
 
-          // Payload có cấu trúc cho định dạng Telegram mới.
-          fullName: deposit.fullName,
-          phone: deposit.phone,
-          cards: data.cards,
-          balls: data.balls,
-          cardAction: isTakingCards ? "Lấy" : "Gửi",
-          ballAction: isTakingBalls ? "Lấy" : "Gửi",
-          actorName: data.actorName,
-          depositTime,
-          depositDate,
+      // Payload có cấu trúc cho định dạng Telegram mới.
+      fullName: deposit.fullName,
+      phone: deposit.phone,
+      cards: data.cards,
+      balls: data.balls,
+      cardAction: isTakingCards ? "Lấy" : "Gửi",
+      ballAction: isTakingBalls ? "Lấy" : "Gửi",
+      actorName: data.actorName,
+      depositTime,
+      depositDate,
+    });
+
+    // Chạy sau khi đã trả response, không block giao diện nhân viên.
+    after(async () => {
+      await Promise.allSettled([
+        sendPushToAll({
+          title: "Ký gửi PINBALL",
+          body: pushBody,
+          url: "/",
         }),
-      }).catch((err) => {
-        console.error("Lỗi gửi webhook tới Telegram Bot:", err.message);
-      });
-    }
+        webhookUrl
+          ? fetch(webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: webhookBody,
+            }).catch((err) => {
+              console.error("Lỗi gửi webhook tới Telegram Bot:", err.message);
+            })
+          : Promise.resolve(),
+      ]);
+    });
 
-    return NextResponse.json({ deposit: serializeDeposit(refreshedDeposit ?? deposit) }, { status: 201 });
+    return NextResponse.json({ deposit: serializeDeposit(responseDeposit) }, { status: 201 });
   } catch (error) {
     return jsonError(parseError(error), 400);
   }

@@ -15,6 +15,14 @@ const indexes = [
     key: { depositDate: 1, createdAt: -1 },
     options: { name: "depositDate_1_createdAt_-1" },
   },
+  {
+    key: { idempotencyKey: 1 },
+    options: {
+      name: "idempotencyKey_1",
+      unique: true,
+      partialFilterExpression: { idempotencyKey: { $type: "string" } },
+    },
+  },
 ];
 
 try {

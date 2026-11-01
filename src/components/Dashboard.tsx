@@ -12,6 +12,7 @@ import {
   Eye,
   FileDown,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   Plus,
   RefreshCw,
@@ -602,6 +603,8 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   const [depositForm, setDepositForm] = useState(() => getDefaultDepositForm());
   const [depositLookup, setDepositLookup] = useState<DepositLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const [historyQuery, setHistoryQuery] = useState("");
   const [historyQueryResults, setHistoryQueryResults] = useState<DepositSuggestion[]>([]);
@@ -1289,7 +1292,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
   async function handleCreateDeposit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    // Khóa đồng bộ ngay lập tức: state React chưa kịp cập nhật giữa 2 lần click/Enter liên tiếp.
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
     try {
+      const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const payload = {
         fullName: depositForm.fullName,
         phone: depositForm.phone,
@@ -1305,9 +1314,9 @@ export default function Dashboard({ mode }: { mode: Mode }) {
             }
           : {}),
       };
-      const data = await apiRequest<{ deposit: Deposit }>("/api/deposits", {
+      const data = await apiRequest<{ deposit: Deposit; deduplicated?: boolean }>("/api/deposits", {
         method: "POST",
-        headers: getJsonWriteHeaders(),
+        headers: { ...getJsonWriteHeaders(), "X-Idempotency-Key": idempotencyKey },
         body: JSON.stringify(payload),
       });
 
@@ -1332,9 +1341,15 @@ export default function Dashboard({ mode }: { mode: Mode }) {
       if (isAdmin) {
         void loadAdminDashboard(adminDashboardDate);
       }
-      showNotice("success", "Đã lưu chi tiết lần gửi mới.");
+      showNotice(
+        "success",
+        data.deduplicated ? "Bản ghi này vừa được lưu, không tạo trùng." : "Đã lưu chi tiết lần gửi mới.",
+      );
     } catch (error) {
       showNotice("error", error instanceof Error ? error.message : "Không lưu được bản ghi.");
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   }
 
@@ -2086,7 +2101,16 @@ export default function Dashboard({ mode }: { mode: Mode }) {
               </div>
             </div>
 
-            <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4" onSubmit={handleCreateDeposit}>
+            <form
+              aria-busy={isSubmitting}
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && isSubmittingRef.current) {
+                  event.preventDefault();
+                }
+              }}
+              onSubmit={handleCreateDeposit}
+            >
               {isAdmin ? (
                 <div className="grid gap-3 rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-12">
                   <label>
@@ -2290,9 +2314,13 @@ export default function Dashboard({ mode }: { mode: Mode }) {
                   </div>
                 </div>
 
-                <button className={`${primaryButton} w-full px-3`} type="submit">
-                  <Plus aria-hidden="true" size={18} />
-                  Lưu
+                <button className={`${primaryButton} w-full px-3`} disabled={isSubmitting} type="submit">
+                  {isSubmitting ? (
+                    <LoaderCircle aria-hidden="true" className="animate-spin" size={18} />
+                  ) : (
+                    <Plus aria-hidden="true" size={18} />
+                  )}
+                  {isSubmitting ? "Đang lưu..." : "Lưu"}
                 </button>
               </div>
             </form>
