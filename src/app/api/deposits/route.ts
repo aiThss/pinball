@@ -533,23 +533,6 @@ export async function POST(request: NextRequest) {
       process.env.TELEGRAM_BOT_WEBHOOK_URL ||
       process.env.PINBALL_BOT_WEBHOOK_URL ||
       process.env.BOT_WEBHOOK_URL;
-    const webhookBody = JSON.stringify({
-      // Trường cũ được giữ để bot vẫn tương thích trong lúc deploy lần lượt.
-      id: deposit._id.toString(),
-      title: `${deposit.fullName} (${deposit.phone})`,
-      type: `${actionParts.join(" + ")} (Bởi ${data.actorName} lúc ${depositTime})`,
-
-      // Payload có cấu trúc cho định dạng Telegram mới.
-      fullName: deposit.fullName,
-      phone: deposit.phone,
-      cards: data.cards,
-      balls: data.balls,
-      cardAction: isTakingCards ? "Lấy" : "Gửi",
-      ballAction: isTakingBalls ? "Lấy" : "Gửi",
-      actorName: data.actorName,
-      depositTime,
-      depositDate,
-    });
 
     // Chạy sau khi đã trả response, không block giao diện nhân viên.
     after(async () => {
@@ -563,7 +546,23 @@ export async function POST(request: NextRequest) {
           ? fetch(webhookUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: webhookBody,
+              body: JSON.stringify({
+                // Trường cũ được giữ để bot vẫn tương thích trong lúc deploy lần lượt.
+                id: deposit._id.toString(),
+                title: `${deposit.fullName} (${deposit.phone})`,
+                type: `${actionParts.join(" + ")} (Bởi ${data.actorName} lúc ${depositTime})`,
+
+                // Payload có cấu trúc cho định dạng Telegram mới.
+                fullName: deposit.fullName,
+                phone: deposit.phone,
+                cards: data.cards,
+                balls: data.balls,
+                cardAction: isTakingCards ? "Lấy" : "Gửi",
+                ballAction: isTakingBalls ? "Lấy" : "Gửi",
+                actorName: data.actorName,
+                depositTime,
+                depositDate,
+              }),
             }).catch((err) => {
               console.error("Lỗi gửi webhook tới Telegram Bot:", err.message);
             })
