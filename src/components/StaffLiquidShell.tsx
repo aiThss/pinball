@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
@@ -12,12 +11,15 @@ import {
   Sun,
   Ticket,
 } from "lucide-react";
+import LiquidGlassTabBar, { type LiquidGlassTabItem } from "./LiquidGlassTabBar";
+import { attachLiquidGlassPhysics, type LiquidGlassController } from "@/hooks/useLiquidGlass";
 import styles from "./StaffLiquidShell.module.css";
 import roundedStyles from "./StaffRoundedCards.module.css";
 import quickStyles from "./StaffQuickActions.module.css";
 import darkStyles from "./StaffDarkContrast.module.css";
 import identityStyles from "./StaffIdentityBanner.module.css";
 import paginationStyles from "./StaffRecordPagination.module.css";
+import liquidStyles from "./LiquidGlass.module.css";
 
 type StaffTheme = "light" | "dark";
 type ShellMode = "staff" | "admin";
@@ -63,6 +65,19 @@ function syncDocumentTheme(theme: StaffTheme) {
   document.documentElement.style.colorScheme = theme;
   document.body.style.backgroundColor = color;
 }
+
+const WIDE_SURFACE_SELECTOR = [
+  "main > header > div",
+  "main.flex.min-h-screen > section",
+].join(", ");
+
+const CARD_AND_BUTTON_SELECTOR = [
+  'main section[class*="grid-cols-2"][class*="md:grid-cols-4"] > button',
+  'main section[class*="grid-cols-2"][class*="md:grid-cols-4"] > div',
+  'main section[class*="overflow-hidden"] > div[class*="divide-y"] > article',
+  "main form button[type]",
+  'main section button[type="button"]:not([aria-haspopup="dialog"])',
+].join(", ");
 
 export default function StaffLiquidShell({
   children,
@@ -116,7 +131,6 @@ export default function StaffLiquidShell({
     };
   }, [mode]);
 
-
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell) return;
@@ -133,7 +147,91 @@ export default function StaffLiquidShell({
     return () => observer.disconnect();
   }, []);
 
-  function toggleTheme() {
+  // Attach real-time spring physics & radial glow overlay to interactive cards & buttons
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    const controllers = new Map<
+      HTMLElement,
+      { controller: LiquidGlassController; glowEl: HTMLDivElement }
+    >();
+
+    const bindElement = (
+      el: HTMLElement,
+      hoverScale: number,
+      pressedScale: number,
+      allowScaleTransform: boolean,
+    ) => {
+      if (controllers.has(el)) return;
+      if (el.closest('[role="dialog"]') || el.closest("[data-liquid-theme]")) return;
+
+      const glowEl = document.createElement("div");
+      glowEl.className = liquidStyles.liquidRadialGlow;
+      glowEl.setAttribute("aria-hidden", "true");
+
+      if (window.getComputedStyle(el).position === "static") {
+        el.style.position = "relative";
+      }
+      if (allowScaleTransform) {
+        el.classList.add(liquidStyles.liquidInteractiveSurface);
+      }
+      el.appendChild(glowEl);
+
+      const controller = attachLiquidGlassPhysics(
+        el,
+        {
+          hoverScale: allowScaleTransform ? hoverScale : 1,
+          pressedScale: allowScaleTransform ? pressedScale : 1,
+          stiffness: 280,
+          dampingRatio: 0.55,
+          releaseDampingRatio: 0.5,
+        },
+        true,
+      );
+
+      controllers.set(el, { controller, glowEl });
+    };
+
+    const syncInteractiveSurfaces = () => {
+      controllers.forEach((entry, el) => {
+        if (!el.isConnected) {
+          entry.controller.destroy();
+          entry.glowEl.remove();
+          controllers.delete(el);
+        }
+      });
+
+      shell.querySelectorAll<HTMLElement>(WIDE_SURFACE_SELECTOR).forEach((el) => {
+        bindElement(el, 1.02, 1.04, true);
+      });
+
+      shell.querySelectorAll<HTMLElement>(CARD_AND_BUTTON_SELECTOR).forEach((el) => {
+        // Avoid nesting a spring-scaled button inside an already spring-scaled summary card
+        const parentScaled = el.parentElement?.closest(`.${liquidStyles.liquidInteractiveSurface}`);
+        const isInsideGate = Boolean(el.closest("main.flex.min-h-screen > section"));
+        if (parentScaled && !isInsideGate) return;
+
+        bindElement(el, 1.05, 1.12, true);
+      });
+    };
+
+    syncInteractiveSurfaces();
+    const observer = new MutationObserver(syncInteractiveSurfaces);
+    observer.observe(shell, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      controllers.forEach(({ controller, glowEl }, el) => {
+        controller.destroy();
+        glowEl.remove();
+        el.classList.remove(liquidStyles.liquidInteractiveSurface);
+      });
+      controllers.clear();
+    };
+  }, [mode]);
+
+  const toggleTheme = () => {
     setTheme((current) => {
       const next = current === "light" ? "dark" : "light";
       try {
@@ -144,65 +242,78 @@ export default function StaffLiquidShell({
       syncDocumentTheme(next);
       return next;
     });
-  }
+  };
 
-  function resetStaffName() {
+  const resetStaffName = () => {
     try {
       window.localStorage.removeItem(staffNameStorageKey);
     } catch {
       // Reloading still resets the current React session if storage is unavailable.
     }
     window.location.reload();
-  }
+  };
 
-  async function handleAdminLogout() {
+  const handleAdminLogout = async () => {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (response.ok) router.replace("/");
     } catch {
       // Keep the current session intact if the network request cannot complete.
     }
-  }
+  };
 
-
+  const tabItems = useMemo<LiquidGlassTabItem[]>(
+    () => [
+      mode === "admin"
+        ? {
+            id: "staff-home",
+            label: "Nhân viên",
+            icon: <Ticket aria-hidden="true" />,
+            href: "/",
+            tone: "blue",
+          }
+        : {
+            id: "install-app",
+            label: "Tải xuống",
+            icon: <Download aria-hidden="true" />,
+            href: "/install",
+            tone: "blue",
+          },
+      {
+        id: "theme-mode",
+        label: theme === "light" ? "Light mode" : "Dark mode",
+        icon: theme === "light" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />,
+        onClick: toggleTheme,
+        tone: "green",
+      },
+      mode === "admin"
+        ? {
+            id: "admin-logout",
+            label: "Đăng xuất",
+            icon: <LogOut aria-hidden="true" />,
+            onClick: () => void handleAdminLogout(),
+            tone: "orange",
+          }
+        : {
+            id: "reset-staff",
+            label: "Nhập lại tên",
+            icon: <LogOut aria-hidden="true" />,
+            onClick: resetStaffName,
+            tone: "orange",
+          },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mode, theme],
+  );
 
   const quickActions = quickActionsMount
     ? createPortal(
-        <nav
-          className={quickStyles.quickActionsCard}
-          aria-label={mode === "admin" ? "Thao tác nhanh quản trị" : "Cài đặt nhanh nhân viên"}
-        >
-          {mode === "admin" ? (
-            <Link className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/">
-              <Ticket aria-hidden="true" />
-              <span>Nhân viên</span>
-            </Link>
-          ) : (
-            <Link className={`${quickStyles.quickAction} ${quickStyles.downloadAction}`} href="/install">
-              <Download aria-hidden="true" />
-              <span>Tải xuống</span>
-            </Link>
-          )}
-          <button type="button" className={`${quickStyles.quickAction} ${quickStyles.themeAction}`} onClick={toggleTheme}>
-            {theme === "light" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-            <span>{theme === "light" ? "Light mode" : "Dark mode"}</span>
-          </button>
-          {mode === "admin" ? (
-            <button
-              type="button"
-              className={`${quickStyles.quickAction} ${quickStyles.renameAction}`}
-              onClick={() => void handleAdminLogout()}
-            >
-              <LogOut aria-hidden="true" />
-              <span>Đăng xuất</span>
-            </button>
-          ) : (
-            <button type="button" className={`${quickStyles.quickAction} ${quickStyles.renameAction}`} onClick={resetStaffName}>
-              <LogOut aria-hidden="true" />
-              <span>Nhập lại tên</span>
-            </button>
-          )}
-        </nav>,
+        <LiquidGlassTabBar
+          items={tabItems}
+          defaultActiveId="theme-mode"
+          ariaLabel={mode === "admin" ? "Thao tác nhanh quản trị" : "Cài đặt nhanh nhân viên"}
+          theme={theme}
+        />,
         quickActionsMount,
       )
     : null;

@@ -2,45 +2,43 @@
   --staff-text: #ffffff;
   --staff-text-secondary: #dedee3;
   --staff-text-muted: #b9bac2;
-  --staff-glass-from: rgba(58, 58, 62, 0.88);
-  --staff-glass-to: rgba(23, 23, 26, 0.74);
-  --staff-glass-strong-from: rgba(72, 72, 77, 0.92);
-  --staff-glass-strong-to: rgba(25, 25, 28, 0.82);
-  --staff-glass-soft: rgba(63, 63, 68, 0.64);
-  --staff-border: rgba(255, 255, 255, 0.25);
-  --staff-border-soft: rgba(255, 255, 255, 0.15);
-  --staff-highlight: rgba(255, 255, 255, 0.24);
-  --staff-input: rgba(24, 24, 27, 0.90);
-  --staff-divider: rgba(255, 255, 255, 0.18);
+  --staff-glass-from: rgba(0, 0, 0, 0.28);
+  --staff-glass-to: rgba(0, 0, 0, 0.28);
+  --staff-glass-strong-from: rgba(0, 0, 0, 0.28);
+  --staff-glass-strong-to: rgba(0, 0, 0, 0.28);
+  --staff-glass-soft: rgba(0, 0, 0, 0.28);
+  --staff-border: rgba(255, 255, 255, 0.22);
+  --staff-border-soft: rgba(255, 255, 255, 0.14);
+  --staff-highlight: rgba(255, 255, 255, 0.45);
+  --staff-input: rgba(0, 0, 0, 0.36);
+  --staff-divider: rgba(255, 255, 255, 0.16);
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global([class~="bg-white"]) {
-  background: linear-gradient(
-    145deg,
-    rgba(58, 58, 62, 0.90),
-    rgba(23, 23, 26, 0.78)
-  ) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
   border-color: var(--staff-border) !important;
+  backdrop-filter: url(#liquid-glass-lens) blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) contrast(102%) brightness(105%);
+  -webkit-backdrop-filter: blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) brightness(105%);
   box-shadow:
-    0 16px 38px rgba(0, 0, 0, 0.38),
-    inset 0 1px 0 rgba(255, 255, 255, 0.20),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08) !important;
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.28) !important;
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global([class*="bg-[#F8FAFC]"]),
 .darkContrastShell[data-staff-theme="dark"] :global([class*="bg-[#F1F5F9]"]),
 .darkContrastShell[data-staff-theme="dark"] :global([class*="bg-[#EEF2F7]"]),
 .darkContrastShell[data-staff-theme="dark"] :global([class*="bg-[#E2E8F0]"]) {
-  background: rgba(62, 62, 67, 0.66) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global([class*="border-[#E5E7EB]"]),
 .darkContrastShell[data-staff-theme="dark"] :global([class*="border-[#CBD5E1]"]) {
-  border-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global([class*="divide-[#E5E7EB]"]) > :not([hidden]) ~ :not([hidden]) {
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global([class*="text-[#0F172A]"]) {
@@ -66,10 +64,10 @@
 .darkContrastShell[data-staff-theme="dark"] :global(select),
 .darkContrastShell[data-staff-theme="dark"] :global(textarea) {
   color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
-  background: rgba(20, 20, 23, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.26) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.24),
     0 8px 22px rgba(0, 0, 0, 0.28) !important;
 }
 
@@ -93,16 +91,16 @@
 .darkContrastShell[data-staff-theme="dark"] :global(a[class*="bg-[#F8FAFC]"]) {
   color: #ededf0 !important;
   border-color: rgba(255, 255, 255, 0.24) !important;
-  background: rgba(62, 62, 67, 0.66) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global(thead) {
   color: #f5f5f7 !important;
-  background: rgba(72, 72, 77, 0.72) !important;
+  background: rgba(0, 0, 0, 0.34) !important;
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global(tbody[class*="bg-white"]) {
-  background: rgba(31, 31, 35, 0.78) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
 }
 
 .darkContrastShell[data-staff-theme="dark"] :global(tr) {

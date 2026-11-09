@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import InstallNudge from "@/components/InstallNudge";
+import LiquidGlassSvgFilter from "@/components/LiquidGlassSvgFilter";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import { APP_DESCRIPTION, APP_NAME, APP_SHORT_NAME, APP_URL, THEME_COLOR } from "@/lib/app-info";
 import "./globals.css";
@@ -62,6 +63,7 @@ export default function RootLayout({
   return (
     <html lang="vi" className="h-full antialiased">
       <body className={`flex min-h-[100dvh] flex-col ${allura.variable} ${jetbrainsMono.variable}`}>
+        <LiquidGlassSvgFilter />
         <ServiceWorkerRegistration />
         <InstallNudge />
         {children}
