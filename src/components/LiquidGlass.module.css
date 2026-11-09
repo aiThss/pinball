@@ -216,7 +216,9 @@
   will-change: transform, backdrop-filter;
 }
 
+.liquidInteractiveSurface::after,
 .liquidRadialGlow {
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;

@@ -118,7 +118,8 @@ export default function StaffLiquidShell({
 
     let mount: HTMLDivElement | null = null;
     const ensureMount = () => {
-      if (mount?.isConnected) return;
+      if (!shell.isConnected) return;
+      if (mount && shell.contains(mount)) return;
       const contentSection = shell.querySelector<HTMLElement>("main > div > section");
       if (!contentSection) return;
       mount = document.createElement("div");
@@ -141,6 +142,7 @@ export default function StaffLiquidShell({
     if (!shell) return;
 
     const updateGateState = () => {
+      if (!shell.isConnected) return;
       const gate = shell.querySelector("main > section");
       const dashboardHeader = shell.querySelector("main > header");
       setShowGateFooter(Boolean(gate && !dashboardHeader));
@@ -157,10 +159,7 @@ export default function StaffLiquidShell({
     const shell = shellRef.current;
     if (!shell) return;
 
-    const controllers = new Map<
-      HTMLElement,
-      { controller: LiquidGlassController; glowEl: HTMLDivElement }
-    >();
+    const controllers = new Map<HTMLElement, LiquidGlassController>();
 
     const bindElement = (
       el: HTMLElement,
@@ -170,16 +169,8 @@ export default function StaffLiquidShell({
       if (controllers.has(el)) return;
       if (el.closest('[role="dialog"]') || el.closest("[data-liquid-theme]")) return;
 
-      const glowEl = document.createElement("div");
-      glowEl.className = liquidStyles.liquidRadialGlow;
-      glowEl.setAttribute("aria-hidden", "true");
-
-      if (window.getComputedStyle(el).position === "static") {
-        el.style.position = "relative";
-      }
       el.dataset.liquidSurface = "true";
       el.classList.add(liquidStyles.liquidInteractiveSurface);
-      el.appendChild(glowEl);
 
       const controller = attachLiquidGlassPhysics(
         el,
@@ -193,14 +184,15 @@ export default function StaffLiquidShell({
         true,
       );
 
-      controllers.set(el, { controller, glowEl });
+      controllers.set(el, controller);
     };
 
     const syncInteractiveSurfaces = () => {
-      controllers.forEach((entry, el) => {
-        if (!el.isConnected) {
-          entry.controller.destroy();
-          entry.glowEl.remove();
+      if (!shell.isConnected) return;
+
+      controllers.forEach((controller, el) => {
+        if (!shell.contains(el)) {
+          controller.destroy();
           controllers.delete(el);
         }
       });
@@ -222,9 +214,8 @@ export default function StaffLiquidShell({
 
     return () => {
       observer.disconnect();
-      controllers.forEach(({ controller, glowEl }, el) => {
+      controllers.forEach((controller, el) => {
         controller.destroy();
-        glowEl.remove();
         delete el.dataset.liquidSurface;
         el.classList.remove(liquidStyles.liquidInteractiveSurface);
       });
