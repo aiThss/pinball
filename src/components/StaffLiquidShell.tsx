@@ -57,7 +57,7 @@ function getInitialTheme(themeStorageKey: string): StaffTheme {
 }
 
 function syncDocumentTheme(theme: StaffTheme) {
-  const color = theme === "dark" ? "#07080a" : "#eef0f4";
+  const color = theme === "dark" ? "#151924" : "#eef0f4";
   document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
     meta.setAttribute("content", color);
   });
@@ -66,17 +66,22 @@ function syncDocumentTheme(theme: StaffTheme) {
   document.body.style.backgroundColor = color;
 }
 
+// Wide cards/banners use subtle scale (hoverScale: 1.02, pressedScale: 1.04)
 const WIDE_SURFACE_SELECTOR = [
   "main > header > div",
   "main.flex.min-h-screen > section",
+  'main section[class*="overflow-hidden"] > div[class*="divide-y"] > article',
+  'main div[class*="sm:hidden"] > article',
 ].join(", ");
 
+// Buttons, chips, summary cards, and mobile controls use snappy scale (hoverScale: 1.05, pressedScale: 1.12)
 const CARD_AND_BUTTON_SELECTOR = [
   'main section[class*="grid-cols-2"][class*="md:grid-cols-4"] > button',
   'main section[class*="grid-cols-2"][class*="md:grid-cols-4"] > div',
-  'main section[class*="overflow-hidden"] > div[class*="divide-y"] > article',
+  'main div[class*="grid-cols-2"] > div[class*="relative"][class*="flex"][class*="h-10"]',
   "main form button[type]",
   'main section button[type="button"]:not([aria-haspopup="dialog"])',
+  "main section a[href]:not([data-phone-number])",
 ].join(", ");
 
 export default function StaffLiquidShell({
@@ -147,7 +152,7 @@ export default function StaffLiquidShell({
     return () => observer.disconnect();
   }, []);
 
-  // Attach real-time spring physics & radial glow overlay to interactive cards & buttons
+  // Attach real-time spring physics & radial glow overlay to interactive cards & buttons (PC + Mobile Touch)
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell) return;
@@ -161,7 +166,6 @@ export default function StaffLiquidShell({
       el: HTMLElement,
       hoverScale: number,
       pressedScale: number,
-      allowScaleTransform: boolean,
     ) => {
       if (controllers.has(el)) return;
       if (el.closest('[role="dialog"]') || el.closest("[data-liquid-theme]")) return;
@@ -173,16 +177,15 @@ export default function StaffLiquidShell({
       if (window.getComputedStyle(el).position === "static") {
         el.style.position = "relative";
       }
-      if (allowScaleTransform) {
-        el.classList.add(liquidStyles.liquidInteractiveSurface);
-      }
+      el.dataset.liquidSurface = "true";
+      el.classList.add(liquidStyles.liquidInteractiveSurface);
       el.appendChild(glowEl);
 
       const controller = attachLiquidGlassPhysics(
         el,
         {
-          hoverScale: allowScaleTransform ? hoverScale : 1,
-          pressedScale: allowScaleTransform ? pressedScale : 1,
+          hoverScale,
+          pressedScale,
           stiffness: 280,
           dampingRatio: 0.55,
           releaseDampingRatio: 0.5,
@@ -202,17 +205,14 @@ export default function StaffLiquidShell({
         }
       });
 
-      shell.querySelectorAll<HTMLElement>(WIDE_SURFACE_SELECTOR).forEach((el) => {
-        bindElement(el, 1.02, 1.04, true);
+      // Bind smaller interactive cards, buttons, and mobile actions first
+      shell.querySelectorAll<HTMLElement>(CARD_AND_BUTTON_SELECTOR).forEach((el) => {
+        bindElement(el, 1.05, 1.12);
       });
 
-      shell.querySelectorAll<HTMLElement>(CARD_AND_BUTTON_SELECTOR).forEach((el) => {
-        // Avoid nesting a spring-scaled button inside an already spring-scaled summary card
-        const parentScaled = el.parentElement?.closest(`.${liquidStyles.liquidInteractiveSurface}`);
-        const isInsideGate = Boolean(el.closest("main.flex.min-h-screen > section"));
-        if (parentScaled && !isInsideGate) return;
-
-        bindElement(el, 1.05, 1.12, true);
+      // Bind wide banners, gate cards, and mobile deposit articles
+      shell.querySelectorAll<HTMLElement>(WIDE_SURFACE_SELECTOR).forEach((el) => {
+        bindElement(el, 1.02, 1.04);
       });
     };
 
@@ -225,6 +225,7 @@ export default function StaffLiquidShell({
       controllers.forEach(({ controller, glowEl }, el) => {
         controller.destroy();
         glowEl.remove();
+        delete el.dataset.liquidSurface;
         el.classList.remove(liquidStyles.liquidInteractiveSurface);
       });
       controllers.clear();

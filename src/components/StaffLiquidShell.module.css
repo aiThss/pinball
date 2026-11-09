@@ -5,17 +5,17 @@
   --staff-accent: #007aff;
   --staff-accent-2: #0891b2;
   --staff-page-fallback: #eef0f4;
-  --staff-glass-from: rgba(255, 255, 255, 0.34);
-  --staff-glass-to: rgba(255, 255, 255, 0.14);
-  --staff-glass-strong-from: rgba(255, 255, 255, 0.44);
-  --staff-glass-strong-to: rgba(255, 255, 255, 0.18);
-  --staff-glass-soft: rgba(255, 255, 255, 0.24);
+  --staff-glass-from: rgba(255, 255, 255, 0.48);
+  --staff-glass-to: rgba(255, 255, 255, 0.22);
+  --staff-glass-strong-from: rgba(255, 255, 255, 0.58);
+  --staff-glass-strong-to: rgba(255, 255, 255, 0.28);
+  --staff-glass-soft: rgba(255, 255, 255, 0.32);
   --staff-border: rgba(72, 72, 79, 0.20);
   --staff-border-soft: rgba(72, 72, 79, 0.12);
   --staff-highlight: rgba(255, 255, 255, 0.94);
   --staff-shadow: 0 18px 46px rgba(15, 23, 42, 0.09), 0 4px 12px rgba(15, 23, 42, 0.04);
-  --staff-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --staff-input: rgba(255, 255, 255, 0.40);
+  --staff-shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.10);
+  --staff-input: rgba(255, 255, 255, 0.44);
   --staff-divider: rgba(60, 60, 67, 0.14);
 
   position: relative;
@@ -27,23 +27,23 @@
 
 .shell[data-staff-theme="dark"] {
   --staff-text: #f5f5f7;
-  --staff-text-secondary: #aeaeb2;
-  --staff-text-muted: #7d7d82;
+  --staff-text-secondary: #c7c9d3;
+  --staff-text-muted: #989ba8;
   --staff-accent: #0a84ff;
   --staff-accent-2: #64d2ff;
-  --staff-page-fallback: #07080a;
-  --staff-glass-from: rgba(0, 0, 0, 0.28);
-  --staff-glass-to: rgba(0, 0, 0, 0.28);
-  --staff-glass-strong-from: rgba(0, 0, 0, 0.28);
-  --staff-glass-strong-to: rgba(0, 0, 0, 0.28);
-  --staff-glass-soft: rgba(0, 0, 0, 0.28);
-  --staff-border: rgba(255, 255, 255, 0.18);
+  --staff-page-fallback: #151924;
+  --staff-glass-from: rgba(54, 60, 78, 0.52);
+  --staff-glass-to: rgba(34, 38, 52, 0.38);
+  --staff-glass-strong-from: rgba(64, 70, 90, 0.58);
+  --staff-glass-strong-to: rgba(38, 43, 58, 0.44);
+  --staff-glass-soft: rgba(48, 54, 70, 0.44);
+  --staff-border: rgba(255, 255, 255, 0.20);
   --staff-border-soft: rgba(255, 255, 255, 0.12);
   --staff-highlight: rgba(255, 255, 255, 0.45);
-  --staff-shadow: 0 24px 62px rgba(0, 0, 0, 0.42), 0 6px 18px rgba(0, 0, 0, 0.20);
-  --staff-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.28);
-  --staff-input: rgba(44, 44, 46, 0.50);
-  --staff-divider: rgba(255, 255, 255, 0.10);
+  --staff-shadow: 0 20px 50px rgba(0, 0, 0, 0.28), 0 6px 18px rgba(0, 0, 0, 0.16);
+  --staff-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --staff-input: rgba(38, 43, 58, 0.54);
+  --staff-divider: rgba(255, 255, 255, 0.14);
 
   color-scheme: dark;
 }
@@ -55,18 +55,18 @@
   pointer-events: none;
   overflow: hidden;
   background:
-    radial-gradient(circle at -5% 0%, rgba(82, 146, 255, 0.20), transparent 34%),
-    radial-gradient(circle at 105% 12%, rgba(176, 132, 236, 0.13), transparent 31%),
-    radial-gradient(circle at 52% 92%, rgba(87, 214, 224, 0.09), transparent 38%),
+    radial-gradient(circle at -5% 0%, rgba(82, 146, 255, 0.22), transparent 36%),
+    radial-gradient(circle at 105% 12%, rgba(176, 132, 236, 0.15), transparent 33%),
+    radial-gradient(circle at 52% 92%, rgba(87, 214, 224, 0.11), transparent 40%),
     linear-gradient(165deg, #ffffff 0%, #f3f5f8 46%, #e8ebf1 100%);
 }
 
 .shell[data-staff-theme="dark"] .backdrop {
   background:
-    radial-gradient(circle at -5% 0%, rgba(60, 112, 255, 0.17), transparent 35%),
-    radial-gradient(circle at 105% 12%, rgba(124, 74, 205, 0.12), transparent 31%),
-    radial-gradient(circle at 52% 92%, rgba(25, 155, 182, 0.07), transparent 38%),
-    linear-gradient(165deg, #050506 0%, #101012 48%, #1c1c1e 100%);
+    radial-gradient(circle at -5% 0%, rgba(74, 136, 255, 0.24), transparent 38%),
+    radial-gradient(circle at 105% 12%, rgba(154, 102, 240, 0.18), transparent 35%),
+    radial-gradient(circle at 52% 92%, rgba(45, 190, 220, 0.13), transparent 42%),
+    linear-gradient(165deg, #141822 0%, #1b202e 48%, #242a3b 100%);
 }
 
 .backdrop::before,
@@ -75,7 +75,7 @@
   position: absolute;
   border-radius: 999px;
   filter: blur(105px);
-  opacity: 0.30;
+  opacity: 0.32;
 }
 
 .backdrop::before {
@@ -83,7 +83,7 @@
   height: 380px;
   top: 8%;
   left: -170px;
-  background: rgba(104, 170, 255, 0.42);
+  background: rgba(104, 170, 255, 0.44);
 }
 
 .backdrop::after {
@@ -91,17 +91,17 @@
   height: 330px;
   top: 24%;
   right: -150px;
-  background: rgba(186, 135, 239, 0.28);
+  background: rgba(186, 135, 239, 0.30);
 }
 
 .shell[data-staff-theme="dark"] .backdrop::before {
-  background: rgba(63, 111, 245, 0.30);
-  opacity: 0.24;
+  background: rgba(82, 138, 255, 0.36);
+  opacity: 0.30;
 }
 
 .shell[data-staff-theme="dark"] .backdrop::after {
-  background: rgba(122, 72, 193, 0.22);
-  opacity: 0.22;
+  background: rgba(146, 96, 224, 0.28);
+  opacity: 0.28;
 }
 
 .content {
@@ -130,7 +130,7 @@
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.45),
     inset 0 -1px 1px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.28);
+    0 8px 24px rgba(0, 0, 0, 0.22);
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -169,7 +169,7 @@
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.45),
     inset 0 -1px 1px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.14) !important;
+    0 8px 24px rgba(15, 23, 42, 0.10) !important;
 }
 
 .shell :global([class*="bg-[#F8FAFC]"]),
@@ -287,7 +287,7 @@
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.45),
     inset 0 -1px 1px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.28) !important;
+    0 8px 24px rgba(0, 0, 0, 0.22) !important;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

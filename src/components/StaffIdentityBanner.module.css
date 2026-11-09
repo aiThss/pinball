@@ -19,7 +19,7 @@
   margin-inline: auto;
   padding: 13px 15px !important;
   overflow: hidden;
-  border: 1px solid rgba(72, 72, 79, 0.32);
+  border: 1px solid rgba(72, 72, 79, 0.28);
   border-radius: 28px;
   background:
     linear-gradient(145deg, var(--staff-glass-strong-from), var(--staff-glass-strong-to)) !important;
@@ -27,18 +27,22 @@
   backdrop-filter: url(#liquid-glass-lens) blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) contrast(102%) brightness(105%);
   -webkit-backdrop-filter: blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) brightness(105%);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.45),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.65),
+    inset 0 -1px 1px rgba(72, 72, 79, 0.14),
     0 8px 24px rgba(15, 23, 42, 0.10);
 }
 
 .identityBannerShell[data-staff-theme="dark"] :global(main > header > div) {
-  background: rgba(0, 0, 0, 0.28) !important;
-  border-color: rgba(255, 255, 255, 0.20);
+  background: linear-gradient(
+    145deg,
+    rgba(58, 64, 82, 0.56),
+    rgba(36, 40, 54, 0.42)
+  ) !important;
+  border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.45),
     inset 0 -1px 1px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.28);
+    0 8px 24px rgba(0, 0, 0, 0.24);
 }
 
 .identityBannerShell :global(main > header > div)::before {
@@ -61,11 +65,11 @@
   background:
     linear-gradient(
       116deg,
-      rgba(255, 255, 255, 0.16) 0%,
-      rgba(255, 255, 255, 0.05) 25%,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.06) 25%,
       transparent 49%
     );
-  opacity: 0.72;
+  opacity: 0.75;
 }
 
 .identityBannerShell :global(main > header > div > div) {

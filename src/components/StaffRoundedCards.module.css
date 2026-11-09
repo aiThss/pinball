@@ -77,23 +77,30 @@
   border-radius: 14px !important;
 }
 
-/* Mobile records were plain divided rows; turn each into a real glass card. */
+/* Mobile records were plain divided rows; turn each into a real Liquid Glass card. */
 .roundedShell :global(section[class*="overflow-hidden"] > div[class*="divide-y"] > article) {
   margin: 10px;
   border: 1px solid var(--staff-border);
   border-radius: var(--staff-radius-card) !important;
   background: linear-gradient(145deg, var(--staff-glass-from), var(--staff-glass-to));
+  backdrop-filter: url(#liquid-glass-lens) blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) contrast(102%) brightness(105%);
+  -webkit-backdrop-filter: blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) brightness(105%);
   box-shadow:
-    0 10px 28px rgba(15, 23, 42, 0.055),
-    inset 0 1px 0 var(--staff-highlight),
-    inset 0 -1px 0 var(--staff-border-soft);
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.12),
+    0 10px 28px rgba(15, 23, 42, 0.08);
 }
 
 .roundedShell[data-staff-theme="dark"] :global(section[class*="overflow-hidden"] > div[class*="divide-y"] > article) {
+  background: linear-gradient(
+    145deg,
+    rgba(56, 62, 80, 0.54),
+    rgba(34, 38, 52, 0.40)
+  );
   box-shadow:
-    0 14px 34px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 var(--staff-highlight),
-    inset 0 -1px 0 var(--staff-border-soft);
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.12),
+    0 14px 34px rgba(0, 0, 0, 0.22);
 }
 
 /* Keep the dividers from cutting through rounded mobile cards. */

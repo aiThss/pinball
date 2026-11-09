@@ -51,6 +51,8 @@ function stepSpring(
   return [nextValue, nextVelocity];
 }
 
+const MIN_TOUCH_HOLD_MS = 175;
+
 export function attachLiquidGlassPhysics(
   element: HTMLElement,
   options: UseLiquidGlassOptions = {},
@@ -90,6 +92,9 @@ export function attachLiquidGlassPhysics(
 
   let isHovered = false;
   let isPressed = false;
+  let isTouchActive = false;
+  let pressStartTime = 0;
+  let releaseTimer: number | null = null;
   let currentDamping = activeDampingRatio;
   let rafId: number | null = null;
   let lastFrameTime = 0;
@@ -97,6 +102,13 @@ export function attachLiquidGlassPhysics(
   const prefersReducedMotion =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const clearReleaseTimer = () => {
+    if (releaseTimer !== null && typeof window !== "undefined") {
+      window.clearTimeout(releaseTimer);
+      releaseTimer = null;
+    }
+  };
 
   const writeCssVars = () => {
     const stretchFactorX = 1 - clamp(vx * 0.015, -0.18, 0.18);
@@ -247,8 +259,73 @@ export function attachLiquidGlassPhysics(
     prevEventTime = now;
   };
 
+  const isDelegatedToChild = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    const closestSurface = target.closest<HTMLElement>("[data-liquid-surface='true']");
+    return Boolean(closestSurface && closestSurface !== element && element.contains(closestSurface));
+  };
+
+  const activatePress = (clientX?: number, clientY?: number, isTouch = false) => {
+    clearReleaseTimer();
+    isPressed = true;
+    isHovered = true;
+    pressStartTime = performance.now();
+    if (typeof clientX === "number" && typeof clientY === "number") {
+      updatePointerCoords(clientX, clientY);
+    }
+    currentDamping = activeDampingRatio;
+    targetScale = pressedScale;
+    targetGlow = pressedGlowAlpha;
+    targetPress = 1;
+    if (isTouch) {
+      // Give mobile touch an immediate spring impulse so quick taps visibly pop
+      velocityScale = Math.max(velocityScale, (pressedScale - currentScale) * 10);
+      velocityGlow = Math.max(velocityGlow, (pressedGlowAlpha - currentGlow) * 12);
+    }
+    ensureLoop();
+  };
+
+  const performRelease = (keepHover: boolean) => {
+    isPressed = false;
+    isTouchActive = false;
+    currentDamping = releaseDampingRatio;
+    if (keepHover) {
+      targetScale = hoverScale;
+      targetGlow = hoverGlowAlpha;
+      targetPress = 0;
+    } else {
+      isHovered = false;
+      targetScale = 1;
+      targetGlow = 0;
+      targetPress = 0;
+      prevX = null;
+      prevY = null;
+    }
+    ensureLoop();
+  };
+
+  const scheduleRelease = (keepHover: boolean, isTouch = false) => {
+    clearReleaseTimer();
+    if (!isTouch) {
+      performRelease(keepHover);
+      return;
+    }
+    const elapsed = performance.now() - pressStartTime;
+    const remaining = MIN_TOUCH_HOLD_MS - elapsed;
+    if (remaining > 16 && typeof window !== "undefined") {
+      releaseTimer = window.setTimeout(() => {
+        releaseTimer = null;
+        performRelease(false);
+      }, remaining);
+    } else {
+      performRelease(false);
+    }
+  };
+
   const onPointerEnter = (e: PointerEvent) => {
-    if (options.disabled) return;
+    if (options.disabled || e.pointerType === "touch") return;
+    if (isDelegatedToChild(e.target)) return;
+    clearReleaseTimer();
     isHovered = true;
     prevX = null;
     prevY = null;
@@ -265,7 +342,13 @@ export function attachLiquidGlassPhysics(
   };
 
   const onPointerMove = (e: PointerEvent) => {
-    if (options.disabled) return;
+    if (options.disabled || e.pointerType === "touch") return;
+    if (isDelegatedToChild(e.target)) {
+      if (isHovered && !isPressed) {
+        performRelease(false);
+      }
+      return;
+    }
     isHovered = true;
     updatePointerCoords(e.clientX, e.clientY);
 
@@ -283,11 +366,39 @@ export function attachLiquidGlassPhysics(
   };
 
   const onPointerDown = (e: PointerEvent) => {
-    if (options.disabled) return;
-    isPressed = true;
-    isHovered = true;
-    updatePointerCoords(e.clientX, e.clientY);
+    if (options.disabled || e.pointerType === "touch") return;
+    if (isDelegatedToChild(e.target)) return;
+    activatePress(e.clientX, e.clientY, false);
+  };
 
+  const onPointerUp = (e: PointerEvent) => {
+    if (options.disabled || e.pointerType === "touch") return;
+    scheduleRelease(e.pointerType === "mouse" && isHovered, false);
+  };
+
+  const onPointerLeave = (e: PointerEvent) => {
+    if (options.disabled || e.pointerType === "touch" || isTouchActive) return;
+    scheduleRelease(false, false);
+  };
+
+  // Dedicated mobile Touch handlers (immune to mobile browser pointercancel during finger drag/tap)
+  const onTouchStart = (e: TouchEvent) => {
+    if (options.disabled) return;
+    if (isDelegatedToChild(e.target)) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    isTouchActive = true;
+    prevX = null;
+    prevY = null;
+    prevEventTime = performance.now();
+    activatePress(touch.clientX, touch.clientY, true);
+  };
+
+  const onTouchMove = (e: TouchEvent) => {
+    if (options.disabled || !isTouchActive) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    updatePointerCoords(touch.clientX, touch.clientY);
     currentDamping = activeDampingRatio;
     targetScale = pressedScale;
     targetGlow = pressedGlowAlpha;
@@ -295,37 +406,9 @@ export function attachLiquidGlassPhysics(
     ensureLoop();
   };
 
-  const onPointerUp = (e: PointerEvent) => {
-    if (options.disabled) return;
-    isPressed = false;
-    currentDamping = releaseDampingRatio;
-
-    if (e.pointerType === "mouse" && isHovered) {
-      targetScale = hoverScale;
-      targetGlow = hoverGlowAlpha;
-      targetPress = 0;
-    } else {
-      isHovered = false;
-      targetScale = 1;
-      targetGlow = 0;
-      targetPress = 0;
-      prevX = null;
-      prevY = null;
-    }
-    ensureLoop();
-  };
-
-  const onPointerLeave = () => {
-    if (options.disabled) return;
-    isHovered = false;
-    isPressed = false;
-    prevX = null;
-    prevY = null;
-    currentDamping = releaseDampingRatio;
-    targetScale = 1;
-    targetGlow = 0;
-    targetPress = 0;
-    ensureLoop();
+  const onTouchEnd = () => {
+    if (options.disabled || !isTouchActive) return;
+    scheduleRelease(false, true);
   };
 
   // Initialize CSS variables at rest
@@ -337,7 +420,10 @@ export function attachLiquidGlassPhysics(
     element.addEventListener("pointerdown", onPointerDown, { passive: true });
     element.addEventListener("pointerup", onPointerUp, { passive: true });
     element.addEventListener("pointerleave", onPointerLeave, { passive: true });
-    element.addEventListener("pointercancel", onPointerLeave, { passive: true });
+    element.addEventListener("touchstart", onTouchStart, { passive: true });
+    element.addEventListener("touchmove", onTouchMove, { passive: true });
+    element.addEventListener("touchend", onTouchEnd, { passive: true });
+    element.addEventListener("touchcancel", onTouchEnd, { passive: true });
   }
 
   return {
@@ -352,12 +438,17 @@ export function attachLiquidGlassPhysics(
       }
     },
     triggerHover(clientX?: number, clientY?: number) {
+      clearReleaseTimer();
       isHovered = true;
       if (typeof clientX === "number" && typeof clientY === "number") {
         updatePointerCoords(clientX, clientY);
       }
       currentDamping = activeDampingRatio;
-      if (!isPressed) {
+      if (isPressed) {
+        targetScale = pressedScale;
+        targetGlow = pressedGlowAlpha;
+        targetPress = 1;
+      } else {
         targetScale = hoverScale;
         targetGlow = hoverGlowAlpha;
         targetPress = 0;
@@ -365,33 +456,10 @@ export function attachLiquidGlassPhysics(
       ensureLoop();
     },
     triggerPress(clientX?: number, clientY?: number) {
-      isPressed = true;
-      isHovered = true;
-      if (typeof clientX === "number" && typeof clientY === "number") {
-        updatePointerCoords(clientX, clientY);
-      }
-      currentDamping = activeDampingRatio;
-      targetScale = pressedScale;
-      targetGlow = pressedGlowAlpha;
-      targetPress = 1;
-      ensureLoop();
+      activatePress(clientX, clientY, true);
     },
     triggerRelease(keepHover = false) {
-      isPressed = false;
-      currentDamping = releaseDampingRatio;
-      if (keepHover) {
-        targetScale = hoverScale;
-        targetGlow = hoverGlowAlpha;
-        targetPress = 0;
-      } else {
-        isHovered = false;
-        targetScale = 1;
-        targetGlow = 0;
-        targetPress = 0;
-        prevX = null;
-        prevY = null;
-      }
-      ensureLoop();
+      scheduleRelease(keepHover, !keepHover);
     },
     injectVelocity(newVx: number, newVy = 0) {
       vx = newVx;
@@ -399,6 +467,7 @@ export function attachLiquidGlassPhysics(
       ensureLoop();
     },
     destroy() {
+      clearReleaseTimer();
       if (rafId !== null && typeof window !== "undefined") {
         window.cancelAnimationFrame(rafId);
         rafId = null;
@@ -409,7 +478,10 @@ export function attachLiquidGlassPhysics(
         element.removeEventListener("pointerdown", onPointerDown);
         element.removeEventListener("pointerup", onPointerUp);
         element.removeEventListener("pointerleave", onPointerLeave);
-        element.removeEventListener("pointercancel", onPointerLeave);
+        element.removeEventListener("touchstart", onTouchStart);
+        element.removeEventListener("touchmove", onTouchMove);
+        element.removeEventListener("touchend", onTouchEnd);
+        element.removeEventListener("touchcancel", onTouchEnd);
       }
     },
   };

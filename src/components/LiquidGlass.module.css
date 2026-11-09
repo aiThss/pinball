@@ -4,6 +4,7 @@
   --staff-action-orange: #e45f3f;
 
   position: relative;
+  z-index: 30;
   display: flex;
   align-items: center;
   width: 100%;
@@ -13,6 +14,7 @@
   border-radius: 999px;
   overflow: visible;
   isolation: isolate;
+  touch-action: pan-y;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -25,26 +27,26 @@
   border-radius: 999px;
   overflow: hidden;
   pointer-events: none;
-  background: rgba(15, 23, 42, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.24));
+  border: 1px solid rgba(72, 72, 79, 0.22);
   backdrop-filter: url(#liquid-glass-lens) blur(calc(12px + var(--press, 0) * 4px)) saturate(160%)
     contrast(102%) brightness(105%);
   -webkit-backdrop-filter: blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) brightness(105%);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.45),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.18);
+    inset 0 1px 1px rgba(255, 255, 255, 0.72),
+    inset 0 -1px 1px rgba(72, 72, 79, 0.12),
+    0 8px 24px rgba(15, 23, 42, 0.12);
   transform: translate3d(var(--tx, 0px), 0, 0) scale(var(--scale-x, 1), var(--scale-y, 1));
   transform-origin: center center;
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .tabBarPillLayer {
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(145deg, rgba(52, 58, 74, 0.56), rgba(32, 36, 48, 0.42));
+  border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.45),
     inset 0 -1px 1px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.28);
+    0 8px 24px rgba(0, 0, 0, 0.24);
 }
 
 /* Layer 2: 56px Frosted Sliding Blob Track (overflow: visible so 1.357x ~76px overflows 64px bar) */
@@ -67,57 +69,57 @@
   border-radius: 999px;
   overflow: hidden;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.32);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   backdrop-filter: url(#liquid-glass-lens) blur(calc(12px + var(--press, 0) * 4px)) saturate(160%)
     contrast(102%) brightness(105%);
   -webkit-backdrop-filter: blur(calc(12px + var(--press, 0) * 4px)) saturate(160%) brightness(105%);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.65),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.18),
-    0 8px 24px rgba(0, 0, 0, 0.22);
+    inset 0 1px 1px rgba(255, 255, 255, 0.85),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.24),
+    0 8px 24px rgba(15, 23, 42, 0.16);
   transform: translate3d(var(--tx, 0px), 0, 0) scale(var(--scale-x, 1), var(--scale-y, 1));
   transform-origin: center center;
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .tabBarSlidingBlob {
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(68, 76, 96, 0.54);
+  border-color: rgba(255, 255, 255, 0.34);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.45),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.28);
+    inset 0 1px 1px rgba(255, 255, 255, 0.48),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.14),
+    0 8px 24px rgba(0, 0, 0, 0.26);
 }
 
 .blobTone_blue {
-  background: color-mix(in srgb, var(--staff-action-blue) 14%, rgba(255, 255, 255, 0.26));
-  border-color: color-mix(in srgb, var(--staff-action-blue) 36%, rgba(255, 255, 255, 0.55));
+  background: color-mix(in srgb, var(--staff-action-blue) 16%, rgba(255, 255, 255, 0.46));
+  border-color: color-mix(in srgb, var(--staff-action-blue) 38%, rgba(255, 255, 255, 0.72));
 }
 
 .blobTone_green {
-  background: color-mix(in srgb, var(--staff-action-green) 14%, rgba(255, 255, 255, 0.26));
-  border-color: color-mix(in srgb, var(--staff-action-green) 36%, rgba(255, 255, 255, 0.55));
+  background: color-mix(in srgb, var(--staff-action-green) 16%, rgba(255, 255, 255, 0.46));
+  border-color: color-mix(in srgb, var(--staff-action-green) 38%, rgba(255, 255, 255, 0.72));
 }
 
 .blobTone_orange {
-  background: color-mix(in srgb, var(--staff-action-orange) 15%, rgba(255, 255, 255, 0.26));
-  border-color: color-mix(in srgb, var(--staff-action-orange) 38%, rgba(255, 255, 255, 0.55));
+  background: color-mix(in srgb, var(--staff-action-orange) 17%, rgba(255, 255, 255, 0.46));
+  border-color: color-mix(in srgb, var(--staff-action-orange) 40%, rgba(255, 255, 255, 0.72));
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .blobTone_blue {
-  background: color-mix(in srgb, var(--staff-action-blue) 22%, rgba(0, 0, 0, 0.28));
-  border-color: color-mix(in srgb, var(--staff-action-blue) 45%, rgba(255, 255, 255, 0.28));
+  background: color-mix(in srgb, var(--staff-action-blue) 28%, rgba(58, 66, 86, 0.56));
+  border-color: color-mix(in srgb, var(--staff-action-blue) 52%, rgba(255, 255, 255, 0.34));
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .blobTone_green {
-  background: color-mix(in srgb, var(--staff-action-green) 22%, rgba(0, 0, 0, 0.28));
-  border-color: color-mix(in srgb, var(--staff-action-green) 45%, rgba(255, 255, 255, 0.28));
+  background: color-mix(in srgb, var(--staff-action-green) 28%, rgba(58, 66, 86, 0.56));
+  border-color: color-mix(in srgb, var(--staff-action-green) 52%, rgba(255, 255, 255, 0.34));
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .blobTone_orange {
-  background: color-mix(in srgb, var(--staff-action-orange) 24%, rgba(0, 0, 0, 0.28));
-  border-color: color-mix(in srgb, var(--staff-action-orange) 46%, rgba(255, 255, 255, 0.28));
+  background: color-mix(in srgb, var(--staff-action-orange) 30%, rgba(58, 66, 86, 0.56));
+  border-color: color-mix(in srgb, var(--staff-action-orange) 52%, rgba(255, 255, 255, 0.34));
 }
 
 /* Layer 3: Sharp Icons + Text at z-10 */
@@ -186,15 +188,15 @@
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .itemTone_blue {
-  color: #5eb0ff;
+  color: #6cb8ff;
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .itemTone_green {
-  color: #4ade80;
+  color: #5ce68c;
 }
 
 .tabBarRoot[data-liquid-theme="dark"] .itemTone_orange {
-  color: #fb923c;
+  color: #fca055;
 }
 
 .tabBarItemActive {

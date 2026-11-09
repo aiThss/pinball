@@ -8,8 +8,10 @@ import React, {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLiquidGlass } from "@/hooks/useLiquidGlass";
 import styles from "./LiquidGlass.module.css";
 
@@ -48,6 +50,7 @@ export default function LiquidGlassTabBar({
   className = "",
   theme = "light",
 }: LiquidGlassTabBarProps) {
+  const router = useRouter();
   const [internalActiveId, setInternalActiveId] = useState<string>(
     activeId ?? defaultActiveId ?? items[0]?.id ?? "",
   );
@@ -62,13 +65,19 @@ export default function LiquidGlassTabBar({
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const isPointerDownRef = useRef(false);
+  const isTouchActiveRef = useRef(false);
+  const touchStartXRef = useRef(0);
+  const touchLastXRef = useRef(0);
+  const latestPreviewIndexRef = useRef<number | null>(null);
 
   // Layer 1: 64px background glass pill
   const {
     ref: pillRef,
-    handlers: pillHandlers,
     surfaceStyle: pillSurfaceStyle,
     glowStyle: pillGlowStyle,
+    triggerHover: triggerPillHover,
+    triggerPress: triggerPillPress,
+    triggerRelease: triggerPillRelease,
   } = useLiquidGlass<HTMLDivElement>({
     hoverScale: 1.02,
     pressedScale: 1.04,
@@ -133,69 +142,134 @@ export default function LiquidGlassTabBar({
 
       const localX = clamp(clientX - left, 0, trackWidth);
       const nearestIndex = clamp(Math.floor(localX / slotWidth), 0, items.length - 1);
+      latestPreviewIndexRef.current = nearestIndex;
       setPreviewIndex(nearestIndex);
 
       const slotCenter = (nearestIndex + 0.5) * slotWidth;
       const deltaFromCenter = localX - slotCenter;
-      const magneticOffset = clamp(deltaFromCenter * 0.26, -slotWidth * 0.2, slotWidth * 0.2);
+      const magneticOffset = clamp(deltaFromCenter * 0.28, -slotWidth * 0.22, slotWidth * 0.22);
       const targetX = nearestIndex * slotWidth + magneticOffset;
 
       setBlobTargetTx(targetX, false);
       if (isPressing) {
+        triggerPillPress(clientX, clientY);
         triggerBlobPress(clientX, clientY);
       } else {
+        triggerPillHover(clientX, clientY);
         triggerBlobHover(clientX, clientY);
       }
     },
-    [getSlotMetrics, items.length, setBlobTargetTx, triggerBlobHover, triggerBlobPress],
+    [
+      getSlotMetrics,
+      items.length,
+      setBlobTargetTx,
+      triggerBlobHover,
+      triggerBlobPress,
+      triggerPillHover,
+      triggerPillPress,
+    ],
   );
 
+  // Mouse / Pen Pointer handlers
   const handlePointerEnter = (event: ReactPointerEvent<HTMLElement>) => {
-    pillHandlers.onPointerEnter(event as unknown as ReactPointerEvent<HTMLDivElement>);
+    if (event.pointerType === "touch" || isTouchActiveRef.current) return;
     updateBlobFromPointer(event.clientX, event.clientY, isPointerDownRef.current);
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
-    pillHandlers.onPointerMove(event as unknown as ReactPointerEvent<HTMLDivElement>);
+    if (event.pointerType === "touch" || isTouchActiveRef.current) return;
     updateBlobFromPointer(event.clientX, event.clientY, isPointerDownRef.current);
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch" || isTouchActiveRef.current) return;
     isPointerDownRef.current = true;
-    pillHandlers.onPointerDown(event as unknown as ReactPointerEvent<HTMLDivElement>);
     updateBlobFromPointer(event.clientX, event.clientY, true);
   };
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch" || isTouchActiveRef.current) return;
     const wasDown = isPointerDownRef.current;
     isPointerDownRef.current = false;
-    pillHandlers.onPointerUp(event as unknown as ReactPointerEvent<HTMLDivElement>);
 
     const keepHover = event.pointerType === "mouse";
+    triggerPillRelease(keepHover);
     triggerBlobRelease(keepHover);
 
-    if (wasDown && previewIndex !== null) {
-      const selected = items[previewIndex];
+    const targetIdx = latestPreviewIndexRef.current ?? previewIndex;
+    if (wasDown && targetIdx !== null) {
+      const selected = items[targetIdx];
       if (selected) {
         setInternalActiveId(selected.id);
         onActiveChange?.(selected.id);
-        snapBlobToIndex(previewIndex, false);
+        snapBlobToIndex(targetIdx, false);
       }
     } else {
-      snapBlobToIndex(previewIndex ?? activeIndex, false);
+      snapBlobToIndex(targetIdx ?? activeIndex, false);
     }
   };
 
   const handlePointerLeave = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch" || isTouchActiveRef.current) return;
     isPointerDownRef.current = false;
+    latestPreviewIndexRef.current = null;
     setPreviewIndex(null);
-    pillHandlers.onPointerLeave(event as unknown as ReactPointerEvent<HTMLDivElement>);
+    triggerPillRelease(false);
     triggerBlobRelease(false);
     snapBlobToIndex(activeIndex, false);
   };
 
+  // Mobile Touch / Drag handlers
+  const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    isTouchActiveRef.current = true;
+    isPointerDownRef.current = true;
+    touchStartXRef.current = touch.clientX;
+    touchLastXRef.current = touch.clientX;
+    updateBlobFromPointer(touch.clientX, touch.clientY, true);
+  };
+
+  const handleTouchMove = (event: ReactTouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchLastXRef.current = touch.clientX;
+    updateBlobFromPointer(touch.clientX, touch.clientY, true);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isTouchActiveRef.current) return;
+    isTouchActiveRef.current = false;
+    isPointerDownRef.current = false;
+
+    const targetIdx = latestPreviewIndexRef.current ?? activeIndex;
+    const draggedDistance = Math.abs(touchLastXRef.current - touchStartXRef.current);
+    const selected = items[targetIdx];
+
+    if (selected) {
+      setInternalActiveId(selected.id);
+      onActiveChange?.(selected.id);
+      snapBlobToIndex(targetIdx, false);
+
+      // If the user dragged their finger across tabs and released, trigger the tab action
+      if (draggedDistance > 14) {
+        if (selected.onClick) {
+          selected.onClick();
+        } else if (selected.href) {
+          router.push(selected.href);
+        }
+      }
+    }
+
+    latestPreviewIndexRef.current = null;
+    setPreviewIndex(null);
+    triggerPillRelease(false);
+    triggerBlobRelease(false);
+  };
+
   const handleItemActivate = (item: LiquidGlassTabItem, index: number) => {
     setInternalActiveId(item.id);
+    latestPreviewIndexRef.current = null;
     setPreviewIndex(null);
     onActiveChange?.(item.id);
     snapBlobToIndex(index, false);
@@ -214,7 +288,10 @@ export default function LiquidGlassTabBar({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerLeave}
-      onPointerCancel={handlePointerLeave}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
       {/* Layer 1: 64px Background Glass Pill (hoverScale: 1.02, pressedScale: 1.04) */}
       <div
